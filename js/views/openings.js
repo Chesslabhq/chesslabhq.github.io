@@ -1,6 +1,6 @@
 // Openings: learn lines from the Lichess opening library, see the repertoire you actually play,
 // and drill lines from memory with spaced repetition.
-import { state, save, myGames, userResult } from '../store.js';
+import { state, save, myGames, userResult, openingName } from '../store.js';
 import { Chess } from '../lib.js';
 import { Board } from '../board.js';
 import { parseGame } from '../analysis.js';
@@ -8,6 +8,7 @@ import { loadBook, inBook, openingOf } from '../openings.js';
 import { $, esc, toast, pct, fmtDate, clsIcon, CLS } from '../ui.js';
 import { CATALOG, byId, ytSearch } from '../data/catalog.js';
 import { recommend, openingProfile } from '../recommend.js';
+import { ANTI, antiById } from '../data/anti.js';
 
 let cleanup = [];
 export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
@@ -25,7 +26,7 @@ const lineId = (moves, color) => color + ':' + moves.join(' ');
 const fmtLine = moves => moves.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + m).join(' ');
 
 function tabs(active) {
-  const t = [['foryou', '✨ Suggested for me'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
+  const t = [['foryou', '✨ Suggested for me'], ['anti', '🛡 Beat an opening'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
   return `<div class="tabs">${t.map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/openings?tab=${k}'">${l}</button>`).join('')}</div>`;
 }
 
@@ -33,6 +34,7 @@ export async function render(root, params) {
   destroy();
   if (params.train) return renderTrainer(root, params);
   if (params.op) return renderOpening(root, params.op);
+  if (params.anti) return renderAntiPage(root, params.anti);
   const tab = params.tab || 'foryou';
   const due = Object.values(state.repertoire).filter(r => r.due <= Date.now()).length;
   root.innerHTML = `
@@ -43,6 +45,7 @@ export async function render(root, params) {
   if (tab === 'library') return renderLibrary(body, params);
   if (tab === 'rep') return renderRep(body);
   if (tab === 'foryou') return renderForYou(body);
+  if (tab === 'anti') return renderAnti(body);
   if (tab === 'popular') return renderPopular(body);
   if (tab === 'gotham') return renderGotham(body);
   return renderMine(body);
@@ -92,6 +95,88 @@ function renderForYou(body) {
     ${bucket('As White', 'Your main weapon with the white pieces.', R.white)}
     ${bucket('As Black vs 1.e4', `Faced in ${R.vsE4.current} of your Black games.`, R.vsE4)}
     ${bucket('As Black vs 1.d4', `Faced in ${R.vsD4.current} of your Black games.`, R.vsD4)}`;
+}
+
+// ---------------------------------------------------------------- Beat an opening
+function antiStats(a) {
+  const games = myGames().filter(g => g.userColor === a.you && a.match(openingName(g) || ''));
+  const res = { win: 0, draw: 0, loss: 0 };
+  games.forEach(g => { const r = userResult(g); if (r) res[r]++; });
+  const score = games.length ? Math.round(((res.win + res.draw / 2) / games.length) * 100) : null;
+  let openMistakes = 0, analysed = 0;
+  for (const g of games) {
+    if (!g.analysis) continue;
+    analysed++;
+    openMistakes += g.analysis.moves.filter(m => m.color === g.userColor && m.phase === 'opening' && ['mistake', 'blunder', 'miss'].includes(m.cls)).length;
+  }
+  return { games, ...res, score, openMistakes, analysed };
+}
+const scoreColor = s => s == null ? 'var(--muted)' : s >= 55 ? '#a7dc75' : s < 45 ? '#f08a7c' : 'var(--text)';
+
+function renderAnti(body) {
+  const all = ANTI.map(a => ({ a, s: antiStats(a) }));
+  const struggles = all.filter(x => x.s.games.length >= 3 && x.s.score < 50).sort((x, y) => x.s.score - y.s.score || y.s.games.length - x.s.games.length);
+  const card = ({ a, s }) => `<a class="theme-btn" href="#/openings?anti=${a.id}" style="display:block">
+    <div class="tn">${esc(a.name)}</div><div class="ts">${esc(a.first)}</div>
+    <div class="ts" style="margin-top:6px">${s.games.length ? `You: <b style="color:${scoreColor(s.score)}">${s.score}%</b> in ${s.games.length} game${s.games.length > 1 ? 's' : ''} (${s.win}W ${s.draw}D ${s.loss}L)` : 'No games against it yet'}</div></a>`;
+  body.innerHTML = `
+    <div class="card hero">
+      <h2>🛡 Which opening gives you trouble?</h2>
+      <p class="muted" style="margin-top:-6px">Pick one and get a simple game plan, the traps to avoid, and lines to learn and drill.</p>
+      ${struggles.length ? `<h3 style="margin-top:14px">You struggle most against</h3><div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${struggles.slice(0, 4).map(card).join('')}</div>`
+        : '<p class="muted">Import more games and I\'ll spot which openings you score worst against.</p>'}
+    </div>
+    <div class="card"><h2>When I'm White and they play…</h2><div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${all.filter(x => x.a.you === 'w').map(card).join('')}</div></div>
+    <div class="card"><h2>When I'm Black and they play…</h2><div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${all.filter(x => x.a.you === 'b').map(card).join('')}</div></div>`;
+}
+
+function renderAntiPage(root, id) {
+  const a = antiById(id);
+  if (!a) { root.innerHTML = `<div class="card empty"><p>Opening not found.</p><a class="btn" href="#/openings?tab=anti">Back</a></div>`; return; }
+  const s = antiStats(a);
+  const lossList = s.games.filter(g => userResult(g) === 'loss').slice(0, 6);
+  const url = (r, l, mode = '') => `#/openings?train=line${mode ? '&mode=' + mode : ''}&color=${a.you}&moves=${encodeURIComponent(l.moves)}&name=${encodeURIComponent(`vs ${a.name} — ${r.name}: ${l.name}`)}`;
+  const verdict = s.games.length < 3 ? '' : s.score < 40 ? 'This is a real problem opening for you — fix it first.' : s.score < 50 ? 'You\'re losing more than you win against it.' : s.score >= 60 ? 'You already handle it well.' : 'About even — a clear plan will tip it your way.';
+  root.innerHTML = `
+    <div class="page-head"><div><h1>How to beat the ${esc(a.name)}</h1><p>You play ${a.you === 'w' ? 'White' : 'Black'} · ${esc(a.first)}</p></div>
+      <div class="row"><a class="btn" href="https://www.youtube.com/results?search_query=${encodeURIComponent('how to beat the ' + a.name)}" target="_blank" rel="noopener">▶ Videos ↗</a><a class="btn" href="#/openings?tab=anti">← All openings</a></div></div>
+    <div class="grid g2">
+      <div class="card stack">
+        <h2>📊 Your record</h2>
+        ${s.games.length ? `<div class="row" style="gap:24px"><div class="kpi"><span class="v" style="color:${scoreColor(s.score)}">${s.score}%</span><span class="l">score</span></div>
+          <div class="kpi"><span class="v">${s.games.length}</span><span class="l">games</span></div><div class="kpi"><span class="v">${s.win}/${s.draw}/${s.loss}</span><span class="l">W / D / L</span></div></div>
+          ${verdict ? `<p style="margin:0"><b>${verdict}</b></p>` : ''}
+          ${s.analysed ? `<p class="muted" style="margin:0">${s.openMistakes} opening mistake${s.openMistakes === 1 ? '' : 's'} in ${s.analysed} analysed game${s.analysed > 1 ? 's' : ''} against it.</p>` : ''}
+          ${lossList.length ? `<div><h3>Your losses against it</h3>${lossList.map(g => `<div class="insight" style="cursor:pointer;padding:6px 0" onclick="location.hash='#/review/${encodeURIComponent(g.id)}'"><span class="ic">💀</span><span>vs ${esc(a.you === 'w' ? g.black : g.white)} <span class="muted">· ${fmtDate(g.date)} · ${esc(openingName(g) || '')}</span></span></div>`).join('')}</div>` : ''}`
+          : '<p class="muted">You haven\'t faced it in your imported games yet — but here\'s how to be ready.</p>'}
+      </div>
+      <div class="card stack">
+        <h2>🧭 Game plan</h2>
+        <p style="line-height:1.6;margin:0">${esc(a.plan)}</p>
+        <div><h3>⚠ Mistakes to avoid</h3><ul style="line-height:1.7;margin:0;padding-left:20px">${a.avoid.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="spread"><h2>♟ How to play it</h2><button class="btn sm primary" id="anti-add">＋ Add all lines to my repertoire</button></div>
+      <div class="grid g2">${a.responses.map(r => `<div class="card" style="background:var(--bg2)">
+        <div class="spread"><b style="font-size:16px">${esc(r.name)}</b><span class="muted small">${STYLE[r.style]} · ${THEORY[r.theory]}</span></div>
+        <p class="muted" style="margin:6px 0 10px">${esc(r.desc)}</p>
+        ${r.lines.map(l => `<div style="padding:8px 0;border-top:1px solid #33302c"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
+          <a class="btn sm" href="${url(r, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${url(r, l)}">🧠 Drill</a></div>`).join('')}
+      </div>`).join('')}</div>
+    </div>`;
+  $('#anti-add', root).onclick = () => {
+    let n = 0;
+    for (const r of a.responses) for (const l of r.lines) {
+      const moves = l.moves.split(' ');
+      const lid = lineId(moves, a.you);
+      if (state.repertoire[lid]) continue;
+      state.repertoire[lid] = { id: lid, name: `vs ${a.name} — ${r.name}: ${l.name}`, moves, color: a.you, box: 0, due: Date.now(), reps: 0, fails: 0, added: Date.now() };
+      n++;
+    }
+    save('repertoire');
+    toast(n ? `Added ${n} line${n > 1 ? 's' : ''} — drill them from "My repertoire".` : 'Already in your repertoire', 'success');
+  };
 }
 
 // ---------------------------------------------------------------- Most popular
