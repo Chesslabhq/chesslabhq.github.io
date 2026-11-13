@@ -9,6 +9,7 @@ import { $, esc, toast, pct, fmtDate, clsIcon, CLS } from '../ui.js';
 import { CATALOG, byId, ytSearch } from '../data/catalog.js';
 import { recommend, openingProfile } from '../recommend.js';
 import { ANTI, antiById } from '../data/anti.js';
+import { videosCard } from '../videos.js';
 
 let cleanup = [];
 export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
@@ -26,7 +27,7 @@ const lineId = (moves, color) => color + ':' + moves.join(' ');
 const fmtLine = moves => moves.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + m).join(' ');
 
 function tabs(active) {
-  const t = [['foryou', '✨ Suggested for me'], ['anti', '🛡 Beat an opening'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
+  const t = [['foryou', '✨ Suggested for me'], ['anti', '🛡 Beat an opening'], ['videos', '🎬 Videos'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
   return `<div class="tabs">${t.map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/openings?tab=${k}'">${l}</button>`).join('')}</div>`;
 }
 
@@ -46,6 +47,7 @@ export async function render(root, params) {
   if (tab === 'rep') return renderRep(body);
   if (tab === 'foryou') return renderForYou(body);
   if (tab === 'anti') return renderAnti(body);
+  if (tab === 'videos') return renderVideos(body);
   if (tab === 'popular') return renderPopular(body);
   if (tab === 'gotham') return renderGotham(body);
   return renderMine(body);
@@ -139,7 +141,7 @@ function renderAntiPage(root, id) {
   const verdict = s.games.length < 3 ? '' : s.score < 40 ? 'This is a real problem opening for you — fix it first.' : s.score < 50 ? 'You\'re losing more than you win against it.' : s.score >= 60 ? 'You already handle it well.' : 'About even — a clear plan will tip it your way.';
   root.innerHTML = `
     <div class="page-head"><div><h1>How to beat the ${esc(a.name)}</h1><p>You play ${a.you === 'w' ? 'White' : 'Black'} · ${esc(a.first)}</p></div>
-      <div class="row"><a class="btn" href="https://www.youtube.com/results?search_query=${encodeURIComponent('how to beat the ' + a.name)}" target="_blank" rel="noopener">▶ Videos ↗</a><a class="btn" href="#/openings?tab=anti">← All openings</a></div></div>
+      <div class="row"><a class="btn" href="#op-videos" onclick="document.getElementById('op-videos').scrollIntoView({behavior:'smooth'});return false">🎬 Videos</a><a class="btn" href="#/openings?tab=anti">← All openings</a></div></div>
     <div class="grid g2">
       <div class="card stack">
         <h2>📊 Your record</h2>
@@ -164,7 +166,8 @@ function renderAntiPage(root, id) {
         ${r.lines.map(l => `<div style="padding:8px 0;border-top:1px solid #33302c"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
           <a class="btn sm" href="${url(r, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${url(r, l)}">🧠 Drill</a></div>`).join('')}
       </div>`).join('')}</div>
-    </div>`;
+    </div>
+    ${videosCard(`how to beat the ${a.name}`, '🎬 Videos: how to beat it')}`;
   $('#anti-add', root).onclick = () => {
     let n = 0;
     for (const r of a.responses) for (const l of r.lines) {
@@ -177,6 +180,37 @@ function renderAntiPage(root, id) {
     save('repertoire');
     toast(n ? `Added ${n} line${n > 1 ? 's' : ''} — drill them from "My repertoire".` : 'Already in your repertoire', 'success');
   };
+}
+
+// ---------------------------------------------------------------- Videos
+function renderVideos(body) {
+  const topics = [...new Set([...CATALOG.map(o => o.name), ...ANTI.map(a => a.name)])].sort();
+  const general = ['Opening principles', 'Opening traps', 'Beginner opening repertoire', 'How to study openings'];
+  let topic = 'Sicilian Defense';
+  try { topic = localStorage.getItem('cl-video-topic') || topic; } catch { /* ignore */ }
+  body.innerHTML = `
+    <div class="card">
+      <h2>🎬 Opening videos</h2>
+      <p class="muted" style="margin-top:-6px">Pick an opening (or type anything) and jump straight to videos from top chess creators.</p>
+      <div class="row">
+        <input id="vid-q" list="vid-topics" value="${esc(topic)}" placeholder="e.g. Caro-Kann, Vienna Gambit, Stafford trap…" style="flex:1;min-width:240px">
+        <datalist id="vid-topics">${topics.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+        <button class="btn primary" id="vid-go">Show videos</button>
+      </div>
+      <div class="row" style="margin-top:10px">${[...general, 'Sicilian Defense', 'Caro-Kann Defense', 'London System', 'Italian Game', 'Vienna Game'].map(t => `<button class="btn sm" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    </div>
+    <div id="vid-out"></div>`;
+  const show = t => {
+    t = t.trim();
+    if (!t) return;
+    try { localStorage.setItem('cl-video-topic', t); } catch { /* ignore */ }
+    $('#vid-q', body).value = t;
+    $('#vid-out', body).innerHTML = videosCard(t, `🎬 ${esc(t)}`);
+  };
+  $('#vid-go', body).onclick = () => show($('#vid-q', body).value);
+  $('#vid-q', body).onkeydown = e => { if (e.key === 'Enter') show(e.target.value); };
+  body.querySelectorAll('[data-t]').forEach(b => b.onclick = () => show(b.dataset.t));
+  show(topic);
 }
 
 // ---------------------------------------------------------------- Most popular
@@ -218,7 +252,7 @@ function renderOpening(root, id) {
   const my = openingProfile().mine[o.id];
   root.innerHTML = `
     <div class="page-head"><div><h1>${esc(o.name)}</h1><p>${sideLabel(o)} · ${STYLE[o.style]} · ${THEORY[o.theory]}${o.gotham ? ' · ♟ GothamChess favourite' : ''}</p></div>
-      <div class="row"><a class="btn" href="${ytSearch(o.name)}" target="_blank" rel="noopener">▶ GothamChess videos ↗</a><a class="btn" href="#/openings">← Openings</a></div></div>
+      <div class="row"><a class="btn" href="#op-videos" onclick="document.getElementById('op-videos').scrollIntoView({behavior:'smooth'});return false">🎬 Videos</a><a class="btn" href="#/openings">← Openings</a></div></div>
     <div class="grid g2">
       <div class="card stack">
         <p style="font-size:15px;line-height:1.6;margin:0">${esc(o.desc)}</p>
@@ -230,7 +264,8 @@ function renderOpening(root, id) {
         ${o.lines.map(l => `<div class="insight"><span class="ic">♟</span><span style="flex:1"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
           <a class="btn sm" href="${trainUrl(o, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${trainUrl(o, l)}">🧠 Drill</a></span></div>`).join('')}
       </div>
-    </div>`;
+    </div>
+    ${videosCard(o.name)}`;
   $('#op-addall', root).onclick = () => {
     let n = 0;
     for (const l of o.lines) {
