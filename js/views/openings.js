@@ -6,6 +6,8 @@ import { Board } from '../board.js';
 import { parseGame } from '../analysis.js';
 import { loadBook, inBook, openingOf } from '../openings.js';
 import { $, esc, toast, pct, fmtDate, clsIcon, CLS } from '../ui.js';
+import { CATALOG, byId, ytSearch } from '../data/catalog.js';
+import { recommend, openingProfile } from '../recommend.js';
 
 let cleanup = [];
 export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
@@ -23,14 +25,15 @@ const lineId = (moves, color) => color + ':' + moves.join(' ');
 const fmtLine = moves => moves.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + m).join(' ');
 
 function tabs(active) {
-  const t = [['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
+  const t = [['foryou', '✨ Suggested for me'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
   return `<div class="tabs">${t.map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/openings?tab=${k}'">${l}</button>`).join('')}</div>`;
 }
 
 export async function render(root, params) {
   destroy();
   if (params.train) return renderTrainer(root, params);
-  const tab = params.tab || 'mine';
+  if (params.op) return renderOpening(root, params.op);
+  const tab = params.tab || 'foryou';
   const due = Object.values(state.repertoire).filter(r => r.due <= Date.now()).length;
   root.innerHTML = `
     <div class="page-head"><div><h1>Openings</h1><p>Learn openings, see what you really play, and drill your lines until they're second nature.</p></div>
@@ -39,7 +42,122 @@ export async function render(root, params) {
   const body = $('#op-body', root);
   if (tab === 'library') return renderLibrary(body, params);
   if (tab === 'rep') return renderRep(body);
+  if (tab === 'foryou') return renderForYou(body);
+  if (tab === 'popular') return renderPopular(body);
+  if (tab === 'gotham') return renderGotham(body);
   return renderMine(body);
+}
+
+// ---------------------------------------------------------------- Catalog helpers
+const sideLabel = o => o.side === 'w' ? '⚪ White' : `⚫ Black vs 1.${o.vs}`;
+const STYLE = { aggressive: '⚔ Aggressive', solid: '🛡 Solid', tricky: '🪤 Tricky' };
+const THEORY = ['', 'Little theory', 'Some theory', 'Lots of theory'];
+const trainUrl = (o, l, mode = '') => `#/openings?train=line${mode ? '&mode=' + mode : ''}&color=${o.side}&moves=${encodeURIComponent(l.moves)}&name=${encodeURIComponent(`${o.name} — ${l.name}`)}`;
+
+function opCard(o, extra = '') {
+  return `<a class="theme-btn" href="#/openings?op=${o.id}" style="display:block">
+    <div class="spread"><span class="tn">${esc(o.name)}</span>${o.gotham ? '<span class="pill" title="GothamChess favourite">♟ Gotham</span>' : ''}</div>
+    <div class="ts">${sideLabel(o)} · ${STYLE[o.style]} · ${THEORY[o.theory]}</div>
+    <div class="ts" style="margin-top:6px;line-height:1.45">${esc(o.desc)}</div>${extra}</a>`;
+}
+
+// ---------------------------------------------------------------- Suggested for me
+function renderForYou(body) {
+  const R = recommend();
+  const P = R.P;
+  if (!P.games) {
+    body.innerHTML = `<div class="card empty"><div class="big">✨</div><p>Import your games and I'll suggest openings that fit how you play.</p><a class="btn primary" href="#/import">Import games</a></div>`;
+    return;
+  }
+  const facts = [
+    P.topFirst ? `As White you usually open <b>1.${esc(P.topFirst)}</b> and score <b>${P.whiteScore}%</b>.` : '',
+    P.black ? `As Black you score <b>${P.blackScore}%</b>. Opponents play 1.e4 in ${P.oppFirst.e4 || 0} and 1.d4 in ${P.oppFirst.d4 || 0} of your Black games.` : '',
+    P.tactics != null ? `Coach scores: tactics <b>${P.tactics}</b>/100, openings <b>${P.openingsScore}</b>/100.` : `<span class="muted">Analyse some games for sharper suggestions — right now I'm only using results.</span>`,
+    P.fast ? 'You mostly play blitz/bullet, so low-theory and trappy openings get a bonus.' : '',
+  ].filter(Boolean);
+  const bucket = (title, sub, B) => `
+    <div class="card">
+      <h2>${title}</h2><p class="muted" style="margin-top:-6px">${sub}</p>
+      ${B.now ? `<div class="insight"><span class="ic">📌</span><span>Right now you mostly play <b>${esc(B.now.o.name)}</b> — ${B.now.my.games} games, ${B.now.my.score}% score. ${B.now.my.score >= 55 ? '<b style="color:#a7dc75">Keep it.</b>' : B.now.my.score <= 40 ? '<b style="color:#f08a7c">Time for a change.</b>' : 'Decent, but there may be a better fit.'}</span></div>` : ''}
+      <div class="grid g3" style="margin-top:10px">${B.picks.map((r, i) => `
+        <div class="card" style="background:var(--bg2)">
+          <div class="spread"><b style="font-size:16px">${i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : '🥉 '}${esc(r.o.name)}</b>${r.o.gotham ? '<span class="pill">♟ Gotham</span>' : ''}</div>
+          <div class="muted small" style="margin:4px 0 8px">${STYLE[r.o.style]} · ${THEORY[r.o.theory]}</div>
+          <ul style="margin:0 0 10px;padding-left:18px;line-height:1.5" class="small">${r.why.slice(0, 4).map(w => `<li>${esc(w)}</li>`).join('')}</ul>
+          <div class="row"><a class="btn sm primary" href="#/openings?op=${r.o.id}">Learn it</a><a class="btn sm" href="${trainUrl(r.o, r.o.lines[0], 'learn')}">▶ First line</a></div>
+        </div>`).join('')}</div>
+    </div>`;
+  body.innerHTML = `
+    <div class="card hero"><h2>🧠 What I see in your games</h2>${facts.map(f => `<p style="margin:6px 0;line-height:1.5">${f}</p>`).join('')}</div>
+    ${bucket('As White', 'Your main weapon with the white pieces.', R.white)}
+    ${bucket('As Black vs 1.e4', `Faced in ${R.vsE4.current} of your Black games.`, R.vsE4)}
+    ${bucket('As Black vs 1.d4', `Faced in ${R.vsD4.current} of your Black games.`, R.vsD4)}`;
+}
+
+// ---------------------------------------------------------------- Most popular
+function renderPopular(body) {
+  const P = openingProfile();
+  const list = [...CATALOG].filter(o => o.style !== 'tricky').sort((a, b) => a.pop - b.pop);
+  const top = obj => Object.entries(obj).filter(([k]) => k !== 'Unknown').sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const oppTable = (rows, total) => rows.length ? `<table class="tbl"><tbody>${rows.map(([n, c]) => `<tr><td>${esc(n)}</td><td style="width:45%"><div class="bar"><i style="width:${Math.round(c / rows[0][1] * 100)}%"></i></div></td><td class="muted">${c} (${pct(c, total)}%)</td></tr>`).join('')}</tbody></table>` : '<p class="muted">Not enough games yet.</p>';
+  body.innerHTML = `
+    <div class="card"><h2>Most popular openings</h2><p class="muted" style="margin-top:-6px">The openings you'll meet most at club and master level, ranked by how often they're played.</p>
+      <div class="table-wrap"><table class="tbl"><tbody>${list.map((o, i) => `<tr class="click" onclick="location.hash='#/openings?op=${o.id}'">
+        <td style="width:36px;font-weight:800;color:var(--muted)">#${i + 1}</td>
+        <td><b>${esc(o.name)}</b>${o.gotham ? ' <span class="pill">♟ Gotham</span>' : ''}<div class="muted small">${esc(fmtLine(o.lines[0].moves.split(' ').slice(0, 6)))}</div></td>
+        <td class="small">${sideLabel(o)}</td><td class="small">${STYLE[o.style]}</td><td class="small muted">${THEORY[o.theory]}</td>
+        <td>${P.mine[o.id].games ? `<span class="small">You: ${P.mine[o.id].games} games, ${P.mine[o.id].score}%</span>` : ''}</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><h2>What opponents play against your White</h2>${oppTable(top(P.vsYouAsWhite), P.white)}</div>
+      <div class="card"><h2>What opponents play against your Black</h2>${oppTable(top(P.vsYouAsBlack), P.black)}</div>
+    </div>`;
+}
+
+// ---------------------------------------------------------------- GothamChess favourites
+function renderGotham(body) {
+  const list = CATALOG.filter(o => o.gotham);
+  const group = (title, f) => `<h3 style="margin-top:18px">${title}</h3><div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${list.filter(f).map(o => opCard(o)).join('')}</div>`;
+  body.innerHTML = `<div class="card">
+    <h2>♟ GothamChess favourites</h2>
+    <p class="muted" style="margin-top:-6px;line-height:1.5">Openings that IM Levy Rozman (GothamChess) is known for teaching — practical, fun, and full of traps for club players. Each one has key lines you can learn and drill here, plus a link to find his videos. ChessLab isn't affiliated with GothamChess.</p>
+    ${group('As White', o => o.side === 'w')}
+    ${group('As Black vs 1.e4', o => o.vs === 'e4')}
+    ${group('As Black vs 1.d4', o => o.vs === 'd4')}</div>`;
+}
+
+// ---------------------------------------------------------------- Opening page
+function renderOpening(root, id) {
+  const o = byId(id);
+  if (!o) { root.innerHTML = `<div class="card empty"><p>Opening not found.</p><a class="btn" href="#/openings">Back</a></div>`; return; }
+  const my = openingProfile().mine[o.id];
+  root.innerHTML = `
+    <div class="page-head"><div><h1>${esc(o.name)}</h1><p>${sideLabel(o)} · ${STYLE[o.style]} · ${THEORY[o.theory]}${o.gotham ? ' · ♟ GothamChess favourite' : ''}</p></div>
+      <div class="row"><a class="btn" href="${ytSearch(o.name)}" target="_blank" rel="noopener">▶ GothamChess videos ↗</a><a class="btn" href="#/openings">← Openings</a></div></div>
+    <div class="grid g2">
+      <div class="card stack">
+        <p style="font-size:15px;line-height:1.6;margin:0">${esc(o.desc)}</p>
+        <div><h3>Key ideas</h3><ul style="line-height:1.7;margin:0;padding-left:20px">${o.ideas.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
+        ${my.games ? `<div class="insight"><span class="ic">📊</span><span>You've played this in <b>${my.games}</b> games and score <b>${my.score}%</b>.</span></div>` : ''}
+      </div>
+      <div class="card">
+        <div class="spread"><h2>Lines to learn</h2><button class="btn sm primary" id="op-addall">＋ Add all to my repertoire</button></div>
+        ${o.lines.map(l => `<div class="insight"><span class="ic">♟</span><span style="flex:1"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
+          <a class="btn sm" href="${trainUrl(o, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${trainUrl(o, l)}">🧠 Drill</a></span></div>`).join('')}
+      </div>
+    </div>`;
+  $('#op-addall', root).onclick = () => {
+    let n = 0;
+    for (const l of o.lines) {
+      const moves = l.moves.split(' ');
+      const lid = lineId(moves, o.side);
+      if (state.repertoire[lid]) continue;
+      state.repertoire[lid] = { id: lid, name: `${o.name} — ${l.name}`, moves, color: o.side, box: 0, due: Date.now(), reps: 0, fails: 0, added: Date.now() };
+      n++;
+    }
+    save('repertoire');
+    toast(n ? `Added ${n} line${n > 1 ? 's' : ''} — drill them from "My repertoire".` : 'Already in your repertoire', 'success');
+  };
 }
 
 // ---------------------------------------------------------------- From my games
