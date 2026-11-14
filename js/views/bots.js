@@ -1,5 +1,5 @@
 // Play against rating-adjustable bots, optionally starting from one of your openings.
-import { state, addGames } from '../store.js';
+import { state, addGames, allGames, myGames, userResult } from '../store.js';
 import { Chess } from '../lib.js';
 import { Board } from '../board.js';
 import { BOTS, botMove, hintMove, quickEval, say } from '../bot.js';
@@ -28,8 +28,72 @@ try { last = { ...last, ...JSON.parse(localStorage.getItem('cl-bot-setup') || '{
 
 export function render(root, params) {
   destroy();
-  if (params.moves) { last.opening = params.moves; if (params.color) last.color = params.color; }
+  if (params.tab === 'board') return renderBoard(root);
+  if (params.moves) { last.opening = params.moves; last.custom = ''; if (params.color) last.color = params.color; }
   renderSetup(root);
+}
+
+const botTabs = active => `<div class="tabs">${[['play', '▶ Play'], ['board', '🏆 Leaderboard']].map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/bots${k === 'board' ? '?tab=board' : ''}'">${l}</button>`).join('')}</div>`;
+
+// ---------------------------------------------------------------- Leaderboard
+function botResults() {
+  const games = allGames().filter(g => g.source === 'bot' && g.botRating).sort((a, b) => a.date - b.date);
+  const real = myGames().slice(0, 30).map(g => g.userColor === 'w' ? g.whiteElo : g.blackElo).filter(Boolean).sort((a, b) => a - b);
+  let elo = real.length ? real[Math.floor(real.length / 2)] : 1200;
+  const startElo = elo;
+  const per = {};
+  let streak = 0, bestWin = null;
+  for (const g of games) {
+    const res = userResult(g);
+    const s = res === 'win' ? 1 : res === 'draw' ? .5 : 0;
+    const known = BOTS.find(b => b.id === g.botId) || (!g.botId && BOTS.find(b => b.rating === g.botRating && `${g.white} ${g.black}`.includes(b.name)));
+    const key = known ? known.id : `custom-${g.botRating}`;
+    const p = per[key] || (per[key] = { win: 0, draw: 0, loss: 0, rating: g.botRating, name: g.botName || `Bot ${g.botRating}` });
+    if (res) p[res]++;
+    // assisted games (hints/takebacks) count for less
+    const k = (g.hints || g.takebacks) ? 12 : 32;
+    elo += k * (s - 1 / (1 + 10 ** ((g.botRating - elo) / 400)));
+    streak = res === 'win' ? streak + 1 : 0;
+    if (res === 'win' && (!bestWin || g.botRating > bestWin.botRating)) bestWin = { ...g, botName: g.botName || known?.name };
+  }
+  return { games, elo: Math.round(elo), startElo, per, streak, bestWin };
+}
+
+function renderBoard(root) {
+  const R = botResults();
+  const rows = BOTS.map(b => ({ type: 'bot', name: b.name, avatar: b.avatar, rating: b.rating, rec: R.per[b.id], id: b.id }));
+  for (const [k, p] of Object.entries(R.per)) if (k.startsWith('custom-')) rows.push({ type: 'bot', name: p.name, avatar: '🤖', rating: p.rating, rec: p, custom: true });
+  if (R.games.length) rows.push({ type: 'you', name: 'You', avatar: '🙂', rating: R.elo });
+  rows.sort((a, b) => b.rating - a.rating || (a.type === 'you' ? -1 : 1));
+  const youRank = rows.findIndex(r => r.type === 'you') + 1;
+  const above = rows[youRank - 2], below = rows[youRank];
+  const wins = R.games.filter(g => userResult(g) === 'win').length;
+  const nextTarget = BOTS.filter(b => !(R.per[b.id]?.win)).sort((a, b) => a.rating - b.rating)[0];
+  root.innerHTML = `
+  <div class="page-head"><div><h1>🏆 Bot leaderboard</h1><p>Climb the ladder by beating stronger bots. Your bot rating moves with every game.</p></div></div>
+  ${botTabs('board')}
+  ${R.games.length ? `
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="card kpi"><span class="l">Your bot rating</span><span class="v" style="color:var(--accent)">${R.elo}</span><span class="d">${R.elo >= R.startElo ? '▲' : '▼'} ${Math.abs(R.elo - R.startElo)} since your first bot game</span></div>
+    <div class="card kpi"><span class="l">Rank</span><span class="v">#${youRank}</span><span class="d">${above ? `${above.avatar} ${esc(above.name)} is next above you` : 'Top of the ladder!'}</span></div>
+    <div class="card kpi"><span class="l">Record</span><span class="v">${wins}/${R.games.length}</span><span class="d">wins · 🔥 ${R.streak} win streak</span></div>
+    <div class="card kpi"><span class="l">Best win</span><span class="v">${R.bestWin ? R.bestWin.botRating : '—'}</span><span class="d">${R.bestWin ? esc(R.bestWin.botName || 'bot') : 'No wins yet'}</span></div>
+  </div>` : `<div class="card hero" style="margin-bottom:16px"><p style="margin:0">Play your first bot game to get your own spot on the ladder.</p></div>`}
+  <div class="card" style="padding:0"><div class="table-wrap"><table class="tbl">
+    <thead><tr><th>#</th><th>Player</th><th>Rating</th><th>Your record vs them</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows.map((r, i) => r.type === 'you' ? `
+      <tr style="background:#2b3a1f"><td><b>${i + 1}</b></td><td style="font-size:16px"><b>🙂 You</b></td><td><b style="font-size:16px;color:var(--accent)">${r.rating}</b></td><td class="muted">${R.games.length} games</td><td>${below ? `Ahead of ${below.avatar} ${esc(below.name)}` : ''}</td><td></td></tr>` : `
+      <tr><td class="muted">${i + 1}</td><td><span style="font-size:20px">${r.avatar}</span> ${esc(r.name)}${r.custom ? ' <span class="muted small">(custom)</span>' : ''}</td><td>${r.rating}</td>
+        <td>${r.rec ? `<span style="color:#a7dc75">${r.rec.win}W</span> · ${r.rec.draw}D · <span style="color:#f08a7c">${r.rec.loss}L</span>` : '<span class="muted">Not played</span>'}</td>
+        <td>${r.rec?.win ? '<span class="pill win">Beaten ✓</span>' : r.rec ? '<span class="pill loss">Unbeaten</span>' : ''}</td>
+        <td>${r.custom ? '' : `<button class="btn sm ${nextTarget && nextTarget.id === r.id ? 'primary' : ''}" data-play="${r.id}">${nextTarget && nextTarget.id === r.id ? 'Next challenge ▶' : 'Play'}</button>`}</td></tr>`).join('')}
+    </tbody></table></div></div>
+  <p class="muted small" style="margin-top:10px">Your bot rating starts from your real online rating and changes after each bot game (games where you used hints or takebacks count less). This ladder is personal — it's saved in your browser only.</p>`;
+  root.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
+    const bot = BOTS.find(x => x.id === b.dataset.play);
+    last.botId = bot.id; last.rating = bot.rating;
+    location.hash = '#/bots';
+  });
 }
 
 // ---------------------------------------------------------------- Setup
@@ -39,6 +103,7 @@ function renderSetup(root) {
   if (last.opening && !opts.some(o => o.moves === last.opening)) opts.unshift({ group: 'Openings', label: fmtLine(last.opening.split(' ')), moves: last.opening, color: last.color });
   root.innerHTML = `
   <div class="page-head"><div><h1>🤖 Play bots</h1><p>Pick an opponent, set the rating, and start from any opening to practise attacking with it.</p></div></div>
+  ${botTabs('play')}
   <div class="grid g2" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)">
     <div class="card">
       <h2>Choose your opponent</h2>
@@ -57,6 +122,10 @@ function renderSetup(root) {
       <label class="field">Start from
         <select id="bt-open"><option value="">Normal starting position</option>${groups.map(g => `<optgroup label="${esc(g)}">${opts.filter(o => o.group === g).map(o => `<option value="${esc(o.moves)}" data-color="${o.color}" ${o.moves === last.opening ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</optgroup>`).join('')}</select>
         <span class="hint" id="bt-open-hint"></span></label>
+      <label class="field">…or choose the first moves yourself
+        <input id="bt-custom" placeholder="e.g.  d4   or   e4 c5   or   1.d4 Nf6 2.c4" value="${esc(last.custom || '')}" autocomplete="off" spellcheck="false">
+        <span class="hint" id="bt-custom-hint">After these moves the bot plays normally.</span></label>
+      <div class="row" id="bt-chips">${[['d4', 'b', 'They play 1.d4'], ['e4', 'b', 'They play 1.e4'], ['c4', 'b', 'They play 1.c4'], ['Nf3', 'b', 'They play 1.Nf3'], ['d4', 'w', 'I play 1.d4'], ['e4', 'w', 'I play 1.e4']].map(([m, c, l]) => `<button class="btn sm" data-m="${m}" data-col="${c}">${l}</button>`).join('')}</div>
       <label class="field">Clock<select id="bt-tc">${TCS.map(([v, l]) => `<option value="${v}" ${v === last.tc ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <button class="btn primary lg" id="bt-play">▶ Play</button>
     </div>
@@ -86,13 +155,40 @@ function renderSetup(root) {
     last.color = b.dataset.c;
     $$('[data-c]', root).forEach(x => x.classList.toggle('primary', x === b));
   };
+  const setColor = c => { last.color = c; $$('[data-c]', root).forEach(x => x.classList.toggle('primary', x.dataset.c === c)); };
   $('#bt-open', root).onchange = e => {
     const o = e.target.selectedOptions[0];
-    if (o?.dataset.color) { last.color = o.dataset.color; $$('[data-c]', root).forEach(x => x.classList.toggle('primary', x.dataset.c === last.color)); }
+    if (o?.dataset.color) setColor(o.dataset.color);
+    if (e.target.value) { $('#bt-custom', root).value = ''; showCustom(); }
     showOpen();
   };
+  const showCustom = () => {
+    const txt = $('#bt-custom', root).value;
+    const h = $('#bt-custom-hint', root);
+    if (!txt.trim()) { h.textContent = 'After these moves the bot plays normally.'; h.style.color = ''; return null; }
+    const r = parseMoves(txt);
+    if (r.error) { h.textContent = r.error; h.style.color = 'var(--red)'; return null; }
+    h.textContent = `Starts after ${fmtLine(r.moves)} — then it's ${r.moves.length % 2 === 0 ? 'White' : 'Black'} to move and the bot plays normally.`;
+    h.style.color = 'var(--accent)';
+    if ($('#bt-open', root).value) { $('#bt-open', root).value = ''; showOpen(); }
+    return r.moves;
+  };
+  $('#bt-custom', root).oninput = showCustom;
+  $('#bt-chips', root).onclick = e => {
+    const b = e.target.closest('[data-m]');
+    if (!b) return;
+    $('#bt-custom', root).value = b.dataset.m;
+    setColor(b.dataset.col);
+    showCustom();
+  };
   $('#bt-play', root).onclick = () => {
-    last.opening = $('#bt-open', root).value;
+    const custom = $('#bt-custom', root).value.trim();
+    if (custom) {
+      const moves = showCustom();
+      if (!moves) return toast('Those moves aren\'t legal — check the spelling (e.g. d4 Nf6 c4).', 'error');
+      last.opening = moves.join(' ');
+    } else last.opening = $('#bt-open', root).value;
+    last.custom = custom;
     last.tc = $('#bt-tc', root).value;
     try { localStorage.setItem('cl-bot-setup', JSON.stringify(last)); } catch { /* ignore */ }
     const color = last.color === 'r' ? (Math.random() < .5 ? 'w' : 'b') : last.color;
@@ -100,7 +196,21 @@ function renderSetup(root) {
     const bot = base && base.rating === last.rating ? base : { id: 'custom', name: `Bot ${last.rating}`, avatar: '🤖', rating: last.rating, hello: 'Ready when you are.' };
     playGame(root, { bot, color, opening: last.opening, tc: last.tc });
   };
-  showBot(); showOpen();
+  showBot(); showOpen(); showCustom();
+}
+
+/** "1.d4 Nf6 2.c4" / "d4 nf6 c4" -> legal SAN list, or an error message. */
+function parseMoves(text) {
+  const toks = text.replace(/\d+\.(\.\.)?/g, ' ').replace(/[,;]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const c = new Chess();
+  for (const t of toks) {
+    let m = null;
+    for (const cand of [t, t.replace(/^[nbrqk]/, x => x.toUpperCase()), t.toLowerCase()]) {
+      try { m = c.move(cand); break; } catch { /* try next spelling */ }
+    }
+    if (!m) return { error: `"${t}" isn't a legal move there.` };
+  }
+  return { moves: c.history() };
 }
 
 // ---------------------------------------------------------------- Game
@@ -237,8 +347,12 @@ function playGame(root, { bot, color, opening, tc }) {
     const label = result === 'win' ? '🏆 You won' : result === 'loss' ? `${bot.avatar} ${esc(bot.name)} won` : '½ Draw';
     status(result === 'win' ? 'ok' : result === 'loss' ? 'bad' : 'done', `${label} ${esc(how)}`);
     chat(say(result === 'win' ? 'lose' : result === 'loss' ? 'win' : 'draw'));
+    const before = botResults().elo;
     const id = saveGame(result, how);
-    $('#g-after', root).innerHTML = `<div class="row">
+    const R = botResults();
+    const diff = R.games.length > 1 ? R.elo - before : 0;
+    $('#g-after', root).innerHTML = `<p style="margin:0 0 10px">🏆 Bot rating: <b style="font-size:18px">${R.elo}</b> ${diff ? `<b style="color:${diff > 0 ? '#a7dc75' : '#f08a7c'}">${diff > 0 ? '+' : ''}${diff}</b>` : ''} · <a href="#/bots?tab=board">Leaderboard →</a></p>
+      <div class="row">
       <button class="btn primary" id="g-review">⚡ Analyse & review</button>
       <button class="btn" id="g-rematch">↻ Rematch</button>
       <button class="btn" id="g-new2">New bot</button></div>
@@ -264,7 +378,8 @@ function playGame(root, { bot, color, opening, tc }) {
       id, source: 'bot', url: null, pgn: pgnGame.pgn(), white: names.w, black: names.b,
       whiteElo: color === 'b' ? bot.rating : null, blackElo: color === 'w' ? bot.rating : null,
       result: resStr, date: Date.now(), timeClass: 'bot', timeControl: tc || '-', rated: false,
-      opening: null, eco: null, userColor: color, termination: how, botRating: bot.rating,
+      opening: null, eco: null, userColor: color, termination: how, botRating: bot.rating, botId: bot.id, botName: bot.name,
+      hints, takebacks,
     }]);
     return id;
   }
