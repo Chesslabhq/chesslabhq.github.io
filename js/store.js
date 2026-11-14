@@ -92,7 +92,8 @@ export function addGames(list) {
 }
 export const openingName = g => g.openingBook?.name || g.opening || null;
 export const allGames = () => Object.values(state.games).sort((a, b) => b.date - a.date);
-export const myGames = () => allGames().filter(g => g.userColor);
+// Your real games (bot games are kept for review but excluded from stats, ratings and coaching)
+export const myGames = () => allGames().filter(g => g.userColor && g.source !== 'bot');
 
 export function userResult(g) {
   if (!g.userColor) return null;

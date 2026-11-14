@@ -164,7 +164,7 @@ function renderAntiPage(root, id) {
         <div class="spread"><b style="font-size:16px">${esc(r.name)}</b><span class="muted small">${STYLE[r.style]} · ${THEORY[r.theory]}</span></div>
         <p class="muted" style="margin:6px 0 10px">${esc(r.desc)}</p>
         ${r.lines.map(l => `<div style="padding:8px 0;border-top:1px solid #33302c"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
-          <a class="btn sm" href="${url(r, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${url(r, l)}">🧠 Drill</a></div>`).join('')}
+          <a class="btn sm" href="${url(r, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${url(r, l)}">🧠 Drill</a> <a class="btn sm" href="#/bots?color=${a.you}&moves=${encodeURIComponent(l.moves)}">🤖 Play vs bot</a></div>`).join('')}
       </div>`).join('')}</div>
     </div>
     ${videosCard(`how to beat the ${a.name}`, '🎬 Videos: how to beat it')}`;
@@ -262,7 +262,7 @@ function renderOpening(root, id) {
       <div class="card">
         <div class="spread"><h2>Lines to learn</h2><button class="btn sm primary" id="op-addall">＋ Add all to my repertoire</button></div>
         ${o.lines.map(l => `<div class="insight"><span class="ic">♟</span><span style="flex:1"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
-          <a class="btn sm" href="${trainUrl(o, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${trainUrl(o, l)}">🧠 Drill</a></span></div>`).join('')}
+          <a class="btn sm" href="${trainUrl(o, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${trainUrl(o, l)}">🧠 Drill</a> <a class="btn sm" href="#/bots?color=${o.side}&moves=${encodeURIComponent(l.moves)}">🤖 Play vs bot</a></span></div>`).join('')}
       </div>
     </div>
     ${videosCard(o.name)}`;
@@ -498,6 +498,7 @@ function renderTrainer(root, params) {
     $('#tr-after', root).innerHTML = `<div class="row">
       ${!inRep ? `<button class="btn primary" id="tr-add">＋ Add to my repertoire</button>` : '<span class="muted">In your repertoire ✓</span>'}
       ${mode === 'learn' ? `<button class="btn" id="tr-drill">🧠 Drill it now</button>` : ''}
+      <a class="btn" href="#/bots?color=${color}&moves=${encodeURIComponent(line.moves.join(' '))}">🤖 Play it vs a bot</a>
       <a class="btn ghost" href="#/analysis?fen=${encodeURIComponent(chess.fen())}">Analyse final position</a></div>`;
     $('#tr-add', root)?.addEventListener('click', () => {
       const { temp, ...rest } = line;

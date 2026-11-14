@@ -53,15 +53,16 @@ export class Engine {
   }
   /**
    * Analyse a position. Scores are returned from White's point of view.
-   * opts: { depth, multipv, infinite, onInfo(lines), token:{cancelled} }
+   * opts: { depth, multipv, infinite, skill (0-20), onInfo(lines), token:{cancelled} }
    */
   analyze(fen, opts = {}) {
-    const { depth = 14, multipv = 1, infinite = false, onInfo, token } = opts;
+    const { depth = 14, multipv = 1, infinite = false, skill = 20, onInfo, token } = opts;
     const job = async () => {
       await this.ready;
       if (token?.cancelled) return null;
       const turn = fen.split(' ')[1];
       const lines = {};
+      this.send(`setoption name Skill Level value ${skill}`);
       this.send(`setoption name MultiPV value ${multipv}`);
       this.send('isready');
       await this.waitFor(l => l === 'readyok');

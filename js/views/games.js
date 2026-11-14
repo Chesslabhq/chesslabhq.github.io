@@ -57,7 +57,7 @@ export function render(root) {
         : running ? `<span class="muted">${Math.round(analyzer.progress * 100)}%</span>`
           : queued ? '<span class="muted">Queued</span>' : `<button class="btn sm" data-an="${g.id}">Analyse</button>`;
       return `<tr class="click" data-id="${g.id}">
-        <td><span class="pill">${g.source === 'chesscom' ? 'Chess.com' : g.source === 'lichess' ? 'Lichess' : 'PGN'}</span></td>
+        <td><span class="pill">${g.source === 'chesscom' ? 'Chess.com' : g.source === 'lichess' ? 'Lichess' : g.source === 'bot' ? '🤖 Bot' : 'PGN'}</span></td>
         <td class="muted">${fmtDate(g.date)}</td>
         <td>${g.userColor ? `<span title="You played ${g.userColor === 'w' ? 'White' : 'Black'}">${g.userColor === 'w' ? '⚪' : '⚫'}</span> ` : ''}${esc(opp)}</td>
         <td>${res ? `<span class="pill ${res}">${cap(res)}</span>` : `<span class="pill">${esc(g.result)}</span>`}</td>

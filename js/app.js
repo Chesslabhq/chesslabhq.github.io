@@ -14,6 +14,7 @@ const routes = {
   analysis: () => import('./views/board.js'),
   coach: () => import('./views/coach.js'),
   rating: () => import('./views/rating.js'),
+  bots: () => import('./views/bots.js'),
   openings: () => import('./views/openings.js'),
   goals: () => import('./views/goals.js'),
   settings: () => import('./views/settings.js'),
