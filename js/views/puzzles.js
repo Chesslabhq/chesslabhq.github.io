@@ -5,9 +5,11 @@ import { duePuzzles, minePuzzles, recordResult, PuzzleFeed, fetchDailyPuzzle, we
 import { primaryTheme, TACTICAL } from '../tactics.js';
 import { $, $$, esc, toast, themeName, THEMES, CLS, clsIcon, fmtDate, pct, todayKey } from '../ui.js';
 import { refreshBadges } from '../app.js';
+import { loadPuzzles, pickPuzzle, seedPuzzleRating } from '../puzzledb.js';
+import { renderRush, destroyRush } from './rush.js';
 
 let cleanup = [];
-export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
+export function destroy() { destroyRush(); cleanup.forEach(f => f()); cleanup = []; }
 
 const TRAIN_THEMES = ['mix', 'fork', 'pin', 'skewer', 'discoveredAttack', 'hangingPiece', 'sacrifice', 'mateIn1', 'mateIn2', 'mateIn3',
   'backRankMate', 'promotion', 'advancedPawn', 'defensiveMove', 'quietMove', 'trappedPiece', 'deflection', 'attraction',
@@ -20,11 +22,12 @@ export function render(root, params) {
   if (mode === 'home') return renderHome(root);
   if (mode === 'bank') return renderBank(root);
   if (mode === 'stats') return renderStats(root);
+  if (mode === 'rush') return renderRush(root, header('rush'));
   return renderSession(root, params);
 }
 
 function header(active) {
-  const tabs = [['home', 'Overview'], ['drill', 'Mistake drill'], ['weak', 'Weakness trainer'], ['themes', 'By theme'], ['daily', 'Daily'], ['bank', 'My puzzle bank'], ['stats', 'Stats']];
+  const tabs = [['home', 'Overview'], ['rated', '🎯 Rated'], ['rush', '⚡ Puzzle Rush'], ['drill', 'Mistake drill'], ['weak', 'Weakness trainer'], ['themes', 'By theme'], ['daily', 'Daily'], ['bank', 'My puzzle bank'], ['stats', 'Stats']];
   return `<div class="tabs">${tabs.map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/puzzles?mode=${k}'">${l}</button>`).join('')}</div>`;
 }
 
@@ -37,6 +40,10 @@ function renderHome(root) {
   root.innerHTML = `
   <div class="page-head"><div><h1>Puzzles</h1><p>Drill the exact positions you got wrong, then train the same patterns with similar puzzles.</p></div></div>
   ${header('home')}
+  <div class="grid g2" style="margin-bottom:16px">
+    <a class="card hero" href="#/puzzles?mode=rated" style="color:inherit;display:block"><h2>🎯 Rated puzzles</h2><p class="muted" style="margin:0">Puzzles matched to your rating. Solve them and your rating climbs. Currently <b>${state.pstats.rating}</b>.</p></a>
+    <a class="card hero" href="#/puzzles?mode=rush" style="color:inherit;display:block;margin-top:0"><h2>⚡ Puzzle Rush</h2><p class="muted" style="margin:0">Beat the clock as puzzles get harder. Three strikes and you're out.</p></a>
+  </div>
   <div class="grid g4" style="margin-bottom:16px">
     <div class="card kpi"><span class="l">Puzzle rating</span><span class="v">${state.pstats.rating}</span><span class="d">from Lichess puzzles</span></div>
     <div class="card kpi"><span class="l">Streak</span><span class="v">🔥 ${puzzleStreak()}</span><span class="d">days in a row</span></div>
@@ -131,6 +138,7 @@ function renderSession(root, params) {
     let k = 0;
     feed = { next: () => feeds[k++ % feeds.length].next(), prefetch: () => feeds.forEach(f => f.prefetch()) };
   }
+  else if (mode === 'rated') { seedPuzzleRating(); title = '🎯 Rated puzzles'; sub = 'Matched to your rating. A wrong move, hint or skip counts as a miss.'; }
   else if (mode === 'daily') { title = 'Daily puzzle'; sub = 'Lichess puzzle of the day'; }
   else if (mode === 'similar') { title = `Similar puzzles: ${themeName(params.theme)}`; sub = 'Same tactical pattern as the mistake you just drilled.'; feed = new PuzzleFeed(params.theme); }
   else if (mode === 'one') { title = 'Puzzle from your game'; }
@@ -146,6 +154,12 @@ function renderSession(root, params) {
       return rest[0] || null;
     }
     if (mode === 'game') return minePuzzles().filter(p => p.gameId === params.id && !seen.has(p.id)).sort((a, b) => a.ply - b.ply)[0] || null;
+    if (mode === 'rated') {
+      await loadPuzzles();
+      const done = new Set(state.pstats.history.map(h => h.id));
+      seen.forEach(id => done.add(id));
+      return pickPuzzle(state.pstats.rating, done);
+    }
     if (mode === 'one') return seen.size ? null : state.puzzles[params.id] || null;
     if (mode === 'cat') return minePuzzles().filter(p => !seen.has(p.id) && puzzleCats(p).includes(params.cat)).sort((a, b) => a.box - b.box || a.due - b.due)[0] || null;
     if (mode === 'daily') return seen.size ? null : fetchDailyPuzzle();
@@ -158,7 +172,7 @@ function renderSession(root, params) {
 
   root.innerHTML = `
   <div class="page-head"><div><h1>${esc(title)}</h1><p>${sub}</p></div><div class="row"><span class="pill" id="pz-score">0 / 0</span><a class="btn" href="#/puzzles">← All puzzles</a></div></div>
-  ${['drill', 'weak', 'daily'].includes(mode) ? header(mode) : ''}
+  ${['drill', 'weak', 'daily', 'rated'].includes(mode) ? header(mode) : ''}
   <div class="board-layout">
     <div class="board-col"><div id="pz-board"></div></div>
     <div class="side-panel">
@@ -174,7 +188,20 @@ function renderSession(root, params) {
     </div>
   </div>`;
 
-  let pz = null, chess = null, step = 0, failed = false, finished = false, busy = false;
+  let pz = null, chess = null, step = 0, failed = false, finished = false, busy = false, recorded = false, delta = 0;
+  const rated = mode === 'rated';
+  // Rated puzzles are scored once, at the first success or error, so retries can't change the result.
+  const record = ok => {
+    if (recorded) return;
+    recorded = true;
+    const before = state.pstats.rating;
+    recordResult(pz, ok);
+    delta = state.pstats.rating - before;
+    refreshBadges();
+    const el = $('#pz-my', root);
+    if (el) el.textContent = `Your rating ${state.pstats.rating}`;
+  };
+  const deltaTxt = () => rated ? ` (${delta >= 0 ? '+' : ''}${delta})` : '';
   let solved = 0, total = 0;
   const board = new Board($('#pz-board', root), {
     dests: sq => (!chess || finished || busy) ? [] : chess.moves({ square: sq, verbose: true }).map(m => m.to),
@@ -203,14 +230,14 @@ function renderSession(root, params) {
     pz = { ...p, solver: p.fen.split(' ')[1] };
     seen.add(p.id);
     chess = new Chess(p.fen);
-    step = 0; failed = false; finished = false; busy = false;
+    step = 0; failed = false; finished = false; busy = false; recorded = false; delta = 0;
     board.set({ fen: p.fen, lastMove: p.lastMove, orientation: pz.solver, arrows: [], marks: {}, badge: null });
     status('turn', solverTurnHtml());
     const g = p.gameId ? state.games[p.gameId] : null;
     $('#pz-info', root).innerHTML = p.source === 'mine'
       ? `<div class="row">${clsIcon(p.cls)} <span>In your game ${g ? `vs <b>${esc(g.userColor === 'w' ? g.black : g.white)}</b> (${fmtDate(g.date)})` : ''} you played <b>${esc(p.playedSan)}</b> — a ${CLS[p.cls]?.label.toLowerCase()}.</span></div>
          <p class="muted small" style="margin:8px 0 0">Seen ${p.attempts}× · ${p.solves} solved · box ${p.box}/6</p>`
-      : `<div class="spread"><span>Lichess puzzle${p.rating ? ` · rated <b>${p.rating}</b>` : ''}</span><span class="muted small">Your rating ${state.pstats.rating}</span></div>`;
+      : `<div class="spread"><span>Lichess puzzle${p.rating ? ` · rated <b>${p.rating}</b>` : ''}</span><span class="muted small" id="pz-my">Your rating ${state.pstats.rating}</span></div>`;
     feed?.prefetch?.();
   }
 
@@ -219,11 +246,10 @@ function renderSession(root, params) {
     total++;
     if (success && !failed) solved++;
     $('#pz-score', root).textContent = `${solved} / ${total}`;
-    recordResult(pz, success && !failed);
-    refreshBadges();
-    if (success && !failed) status('ok', '✅ Correct! Puzzle solved.');
-    else if (success) status('done', '✔ Solved — but with help. It will come back for review.');
-    else status('bad', '✗ Here is the solution. This one will come back soon.');
+    record(success && !failed);
+    if (success && !failed) status('ok', `✅ Correct! Puzzle solved.${deltaTxt()}`);
+    else if (success) status('done', rated ? `✔ Solved, but it counted as a miss.${deltaTxt()}` : '✔ Solved — but with help. It will come back for review.');
+    else status('bad', rated ? `✗ Here is the solution.${deltaTxt()}` : '✗ Here is the solution. This one will come back soon.');
     const tactical = (pz.themes || []).filter(t => THEMES[t]);
     const main = primaryTheme(pz.themes);
     $('#pz-after', root).innerHTML = `
@@ -264,8 +290,9 @@ function renderSession(root, params) {
       playReply();
     } else {
       failed = true;
+      if (rated) record(false);
       board.set({ fen: chess.fen(), lastMove: [from, to], marks: { [to]: 'wrong' }, arrows: [] });
-      status('bad', `✗ ${esc(m.san)} isn't the move. Try again!`);
+      status('bad', `✗ ${esc(m.san)} isn't the move.${deltaTxt()} Try again!`);
       busy = true;
       setTimeout(() => {
         chess.load(before);
@@ -279,6 +306,7 @@ function renderSession(root, params) {
   $('#pz-hint', root).onclick = () => {
     if (!pz || finished) return;
     failed = true;
+    if (rated) record(false);
     const u = pz.solution[step];
     board.set({ marks: { [u.slice(0, 2)]: 'hint' } });
   };
@@ -297,7 +325,11 @@ function renderSession(root, params) {
     finish(false);
   };
   $('#pz-flip', root).onclick = () => board.flip();
-  $('#pz-next', root).onclick = () => { if (!busy) load(); };
+  $('#pz-next', root).onclick = () => {
+    if (busy) return;
+    if (rated && pz && !finished) record(false);
+    load();
+  };
 
   load();
 }
