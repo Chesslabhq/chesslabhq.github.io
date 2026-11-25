@@ -159,7 +159,7 @@ export class Board {
       const rect = this.boardEl.getBoundingClientRect();
       const size = rect.width / 8;
       const ghost = document.createElement('div');
-      ghost.className = 'ghost';
+      ghost.className = 'drag-ghost';
       ghost.style.width = ghost.style.height = size + 'px';
       ghost.innerHTML = pieceHtml(p);
       ghost.style.left = e.clientX + 'px';

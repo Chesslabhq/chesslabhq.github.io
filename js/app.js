@@ -7,6 +7,7 @@ import { $, $$, esc, toast, confirmBox } from './ui.js';
 import { initFx, animateView } from './fx.js';
 
 const routes = {
+  home: () => import('./views/home.js'),
   dashboard: () => import('./views/dashboard.js'),
   import: () => import('./views/import.js'),
   games: () => import('./views/games.js'),
@@ -26,12 +27,12 @@ let routeSeq = 0;
 
 async function route() {
   const seq = ++routeSeq;
-  const hash = location.hash.replace(/^#\/?/, '') || 'dashboard';
+  const hash = location.hash.replace(/^#\/?/, '') || 'home';
   const [path, query] = hash.split('?');
   const [name, ...rest] = path.split('/');
   const params = Object.fromEntries(new URLSearchParams(query || ''));
   if (rest.length) params.id = decodeURIComponent(rest.join('/'));
-  const key = routes[name] ? name : 'dashboard';
+  const key = routes[name] ? name : 'home';
   try { current?.destroy?.(); } catch (e) { console.error(e); }
   current = null;
   const mod = await routes[key]();
@@ -110,7 +111,8 @@ async function init() {
     if (added) {
       renderAccount();
       toast(`Synced ${added} new game${added > 1 ? 's' : ''}`, 'success');
-      if (/^#\/(dashboard|games)?$/.test(location.hash) || !location.hash) route();
+      // refresh pages that list games; the home page isn't re-rolled mid-puzzle
+      if (/^#\/(dashboard|games)$/.test(location.hash)) route();
     }
     errors.forEach(e => toast(e, 'error'));
   }

@@ -2,8 +2,15 @@
 import { parseGame, moverWin } from './analysis.js';
 import { userResult } from './store.js';
 
-// Rough calibration of single-game accuracy -> playing strength (similar in spirit to Chess.com's "Game Rating").
-// Strict on purpose: accuracy is measured on your non-book moves only.
+// How it works: accuracy alone can't tell players apart — measured on real games, a 1250 blitz game scored 82.6%
+// while a Magnus Carlsen blitz game scored 78%, because strong opponents create harder positions. So the estimate
+// starts from the opponent's rating and moves it by how much more (or less) accurately you played than they did,
+// plus a little for the result. The fixed accuracy curve below is only a fallback when there's no opponent rating.
+const POINTS_PER_ACC = 22;   // rating points per accuracy point of difference
+const MAX_SWING = 600;       // a single game can't move the estimate more than this from the opponent's rating
+const RESULT_ADJ = { win: 60, draw: 0, loss: -60 };
+
+// Fallback calibration of single-game accuracy -> playing strength.
 const CURVE = [[40, 200], [55, 500], [65, 800], [72, 1000], [78, 1200], [83, 1450], [88, 1750], [92, 2100], [95, 2450], [98, 2850]];
 function fromAccuracy(acc) {
   if (acc <= CURVE[0][0]) return CURVE[0][1];
@@ -20,30 +27,43 @@ const round25 = x => Math.round(x / 25) * 25;
 export function playedRating(g) {
   const A = g.analysis;
   if (!A || !g.userColor) return null;
-  const mine = A.moves.filter(m => m.color === g.userColor);
-  const nonBook = mine.filter(m => m.cls !== 'book' && m.cls !== 'forced');
+  const oppColor = g.userColor === 'w' ? 'b' : 'w';
+  const realMoves = color => A.moves.filter(m => m.color === color && m.cls !== 'book' && m.cls !== 'forced');
+  const accOf = list => {
+    if (!list.length) return null;
+    const mean = list.reduce((s, m) => s + m.acc, 0) / list.length;
+    const harm = list.length / list.reduce((s, m) => s + 1 / Math.max(m.acc, 5), 0);
+    return +((mean + harm) / 2).toFixed(1);
+  };
+  const nonBook = realMoves(g.userColor);
   if (nonBook.length < 5) return null;
-  const mean = nonBook.reduce((s, m) => s + m.acc, 0) / nonBook.length;
-  const harm = nonBook.length / nonBook.reduce((s, m) => s + 1 / Math.max(m.acc, 5), 0);
-  const acc = +((mean + harm) / 2).toFixed(1);
+  const acc = accOf(nonBook);
+  const oppAcc = accOf(realMoves(oppColor));
   const c = A.counts[g.userColor] || {};
   const blunders = c.blunder || 0, mistakes = (c.mistake || 0) + (c.miss || 0);
-  let est = fromAccuracy(acc);
-  // Accuracy forgives disasters too easily: every blunder and mistake costs extra; clean games get a bonus.
-  est -= Math.min(450, blunders * 75 + mistakes * 30);
-  if (!blunders && !mistakes && nonBook.length >= 15) est += 75;
   const wasWinning = A.positions.some(p => moverWin(p.eval, g.userColor) >= 85);
   const res = userResult(g);
   const threw = wasWinning && res !== 'win';
-  if (threw) est -= 100;
+  const oppRating = g.userColor === 'w' ? g.blackElo : g.whiteElo;
+  let est;
+  if (oppRating && oppAcc != null) {
+    const swing = Math.max(-MAX_SWING, Math.min(MAX_SWING, POINTS_PER_ACC * (acc - oppAcc)));
+    est = oppRating + swing + (RESULT_ADJ[res] || 0);
+    if (threw) est -= 50;
+  } else {
+    // no opponent rating (e.g. a pasted PGN): fall back to accuracy alone
+    est = fromAccuracy(acc) - Math.min(450, blunders * 75 + mistakes * 30);
+    if (!blunders && !mistakes && nonBook.length >= 15) est += 75;
+    if (threw) est -= 100;
+  }
   let spent = [];
   try { const P = parseGame(g.pgn); spent = P.moves.map((m, i) => m.color === g.userColor ? P.spent[i] : null); } catch { /* ignore */ }
   const rushedBlunders = A.moves.filter((m, i) => m.color === g.userColor && m.cls === 'blunder' && spent[i] != null && spent[i] < 4).length;
   const actual = g.userColor === 'w' ? g.whiteElo : g.blackElo;
-  const opp = g.userColor === 'w' ? g.blackElo : g.whiteElo;
-  const rating = Math.max(100, round25(est));
+  const opp = oppRating;
+  const rating = Math.max(100, Math.min(3500, round25(est)));
   return {
-    rating, actual, opp, delta: actual ? rating - actual : null, acc, blunders, mistakes, threw, rushedBlunders, res,
+    rating, actual, opp, delta: actual ? rating - actual : null, acc, oppAcc, blunders, mistakes, threw, rushedBlunders, res,
     lowConfidence: nonBook.length < 12,
     timeLoss: res === 'loss' && /time/i.test(g.termination || ''),
   };

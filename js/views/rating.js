@@ -19,7 +19,7 @@ export function render(root, params) {
   const list = all.filter(x => !tc || x.g.timeClass === tc);
   const unanalysed = games.filter(g => !g.analysis);
 
-  const head = `<div class="page-head"><div><h1>🔥 Rating check</h1><p>The rating you <i>actually</i> played at in each game, based on engine accuracy — no sugar-coating.</p></div>
+  const head = `<div class="page-head"><div><h1>🔥 Rating check</h1><p>The rating you <i>actually</i> played at in each game, based on how well you played compared with your opponent — no sugar-coating.</p></div>
     <div class="row">${classes.length > 1 ? `<select id="rc-tc"><option value="">All time controls</option>${classes.map(c => `<option value="${c}" ${c === tc ? 'selected' : ''}>${cap(c)}</option>`).join('')}</select>` : ''}
     ${unanalysed.length ? `<button class="btn" id="rc-an">⚡ Analyse ${Math.min(20, unanalysed.length)} more games</button>` : ''}</div></div>`;
 
@@ -71,7 +71,7 @@ export function render(root, params) {
       <td><b style="font-size:16px">${p.rating}</b>${p.lowConfidence ? ' <span class="muted small" title="Short game">*</span>' : ''}</td>
       <td style="font-weight:700;color:${deltaColor(p.delta)}">${sign(p.delta)}</td>
       <td class="small" style="max-width:420px;line-height:1.45">${esc(verdict(p, i))}</td></tr>`).join('')}</tbody></table></div></div>
-  <p class="muted small" style="margin-top:10px">Estimated from engine accuracy on your non-book moves, with penalties for every blunder, mistake and thrown win. * = short game, not counted in the averages. It's a rough guide, not an official rating.</p>`;
+  <p class="muted small" style="margin-top:10px">How it's estimated: we start from your opponent's rating, then adjust by how much more or less accurately you played than they did (engine accuracy on non-book moves), plus a little for the result and any thrown wins. * = short game, not counted in the averages. It's a rough guide, not an official rating.</p>`;
 
   wire();
   if (window.Chart) {
