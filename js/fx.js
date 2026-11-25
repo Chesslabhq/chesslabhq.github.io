@@ -1,6 +1,6 @@
 // Page polish: scroll progress bar, cards that animate in as you scroll, and a soft glow following the cursor.
 // Board screens' side panels are left out: their controls must never wait on a scroll animation.
-const TARGETS = '.page-head, .tabs, .card';
+const TARGETS = '.page-head, .tabs, .card, .home-sec-text';
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let io = null, mo = null, until = 0, queued = false;

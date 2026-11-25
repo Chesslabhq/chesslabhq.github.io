@@ -3,6 +3,9 @@ import { Chess } from '../lib.js';
 import { Board } from '../board.js';
 import { loadPuzzles, pickPuzzle } from '../puzzledb.js';
 import { CATALOG } from '../data/catalog.js';
+import { ANTI } from '../data/anti.js';
+import { BOTS } from '../bot.js';
+import { state, myGames } from '../store.js';
 import { $, esc } from '../ui.js';
 
 let cleanup = [];
@@ -91,21 +94,98 @@ export function render(root) {
     </a>
   </div>
 
-  <div class="card" style="margin-top:16px">
-    <h2>Jump in</h2>
-    <div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">${[
-      ['#/puzzles?mode=rush', '⚡', 'Puzzle Rush', 'Beat the clock'],
-      ['#/bots', '🤖', 'Play bots', '100 to 2800'],
-      ['#/puzzles?mode=rated', '🎯', 'Rated puzzles', 'Matched to you'],
-      ['#/openings', '📖', 'Openings', 'Learn & drill'],
-      ['#/analysis', '⚲', 'Analysis board', 'Stockfish, live'],
-      ['#/import', '⇩', 'Import games', 'Chess.com & Lichess'],
-    ].map(([h, i, t, s]) => `<a class="theme-btn" href="${h}" style="display:block"><div style="font-size:24px">${i}</div><div class="tn">${t}</div><div class="ts">${s}</div></a>`).join('')}</div>
-  </div>`;
+  ${sectionsHtml()}`;
 
   $('#h-shuffle', root).onclick = () => render(root);
   startPuzzle(root);
   startReplay(root, game);
+  startDots(root);
+}
+
+// ---------------------------------------------------------------- scroll-through sections
+const SECTIONS = [
+  ['h-top', 'Today'], ['h-sec-puzzles', 'Puzzles'], ['h-sec-bots', 'Bots'], ['h-sec-openings', 'Openings'],
+  ['h-sec-games', 'Your games'], ['h-sec-tools', 'Tools'],
+];
+const tile = (href, icon, title, sub) => `<a class="theme-btn" href="${href}" style="display:block"><div style="font-size:24px">${icon}</div><div class="tn">${esc(title)}</div><div class="ts">${esc(sub)}</div></a>`;
+const section = (id, kicker, title, text, body, actions) => `
+  <section class="home-sec" id="${id}">
+    <div class="home-sec-text">
+      <div class="home-kicker">${kicker}</div>
+      <h2 class="home-sec-title">${title}</h2>
+      <p class="muted" style="line-height:1.6;margin:0 0 16px">${text}</p>
+      <div class="row">${actions}</div>
+    </div>
+    <div class="card home-sec-card">${body}</div>
+  </section>`;
+
+function sectionsHtml() {
+  const ps = state.pstats;
+  const rush = ps.rush?.best || {};
+  const games = myGames();
+  const analysed = games.filter(g => g.analysis).length;
+  const popular = [...CATALOG].filter(o => o.style !== 'tricky').sort((a, b) => a.pop - b.pop).slice(0, 6);
+  const counters = ANTI.filter(a => ['sicilian', 'french', 'carokann', 'london', 'italian', 'pirc'].includes(a.id));
+  return `
+  <button class="home-cue" id="h-cue">Scroll to explore <span>↓</span></button>
+
+  ${section('h-sec-puzzles', '01 · Puzzles', 'Train your tactics',
+    'Rated puzzles that match your level, Puzzle Rush against the clock, and drills built from the mistakes in your own games.',
+    `<div class="grid g3" style="text-align:center">
+      ${[['3', '⚡', '3 min'], ['5', '⏱', '5 min'], ['survival', '🛡', 'Survival']].map(([k, i, l]) => `<a class="theme-btn" href="#/puzzles?mode=rush" style="display:block"><div style="font-size:26px">${i}</div><div class="tn">${l}</div><div class="ts">Best: <b>${rush[k] ?? '—'}</b></div></a>`).join('')}
+    </div>
+    <div class="spread" style="margin-top:14px"><span class="muted">Puzzle rating</span><b style="font-size:22px">${ps.rating}</b></div>`,
+    `<a class="btn primary" href="#/puzzles?mode=rated">🎯 Rated puzzles</a><a class="btn" href="#/puzzles?mode=rush">⚡ Puzzle Rush</a><a class="btn" href="#/puzzles?mode=daily">☀️ Daily</a>`)}
+
+  ${section('h-sec-bots', '02 · Play', 'Play the bots',
+    'Eight personalities from 250 to 2800, or set any rating. Start from any opening — or just pick the first move, like 1.d4.',
+    `<div class="home-bots">${BOTS.map(b => `<a href="#/bots" class="home-bot" title="${esc(b.name)} (${b.rating})"><span>${b.avatar}</span><b>${b.rating}</b></a>`).join('')}</div>
+    <div class="row" style="margin-top:14px">${[['d4', 'They play 1.d4'], ['e4', 'They play 1.e4']].map(([m, l]) => `<a class="btn sm" href="#/bots?moves=${m}&color=b">${l}</a>`).join('')}<a class="btn sm" href="#/bots?tab=board">🏆 Leaderboard</a></div>`,
+    `<a class="btn primary" href="#/bots">🤖 Play a bot</a>`)}
+
+  ${section('h-sec-openings', '03 · Openings', 'Learn openings that fit you',
+    'See the most popular openings, GothamChess favourites, and a step-by-step plan against the openings you struggle with.',
+    `<div class="muted small" style="margin-bottom:8px">Most popular</div>
+    <div class="row">${popular.map(o => `<a class="btn sm" href="#/openings?op=${o.id}">${esc(o.name)}</a>`).join('')}</div>
+    <div class="muted small" style="margin:14px 0 8px">How do I beat…</div>
+    <div class="row">${counters.map(a => `<a class="btn sm" href="#/openings?anti=${a.id}">${esc(a.name)}</a>`).join('')}</div>`,
+    `<a class="btn primary" href="#/openings">📖 Openings</a><a class="btn" href="#/openings?tab=foryou">✨ Suggested for me</a>`)}
+
+  ${section('h-sec-games', '04 · Your games', 'Find out where you lose',
+    games.length ? `${games.length} games imported, ${analysed} analysed. Review them move by move, see the rating you actually played at, and let the coach show your weakest areas.`
+      : 'Import your Chess.com or Lichess games by username. Every move gets graded, and the coach shows exactly where you lose.',
+    `<div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+      ${tile('#/games', '☰', 'My games', 'Review & analyse')}${tile('#/coach', '🧑‍🏫', 'Coach', 'Your 5 areas')}${tile('#/rating', '🔥', 'Rating check', 'No sugar-coating')}${tile('#/goals', '◎', 'Goals', 'Track progress')}
+    </div>`,
+    games.length ? `<a class="btn primary" href="#/dashboard">My dashboard →</a><a class="btn" href="#/import">⇩ Import more</a>` : `<a class="btn primary" href="#/import">⇩ Import my games</a>`)}
+
+  ${section('h-sec-tools', '05 · Tools', 'Analyse anything',
+    'A free analysis board with Stockfish running right in your browser — paste a FEN or PGN, or play out your own ideas.',
+    `<div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+      ${tile('#/analysis', '⚲', 'Analysis board', 'Stockfish, live')}${tile('#/import?tab=pgn', '📋', 'Paste a PGN', 'Review any game')}${tile('#/settings', '⚙', 'Settings', 'Board, engine, backup')}
+    </div>`,
+    `<a class="btn primary" href="#/analysis">⚲ Open the board</a><button class="btn" id="h-top-btn">↑ Back to top</button>`)}
+
+  <nav class="home-dots" aria-label="Sections">${SECTIONS.map(([id, l]) => `<button data-go="${id}" title="${l}"><span>${l}</span></button>`).join('')}</nav>`;
+}
+
+function startDots(root) {
+  const top = root.querySelector('.home-hero');
+  if (top) top.id = 'h-top';
+  const go = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+  $('#h-cue', root).onclick = () => go('h-sec-puzzles');
+  $('#h-top-btn', root).onclick = () => go('h-top');
+  if (!('IntersectionObserver' in window)) return;
+  const dots = Object.fromEntries([...root.querySelectorAll('[data-go]')].map(b => [b.dataset.go, b]));
+  const io = new IntersectionObserver(entries => {
+    for (const e of entries) if (e.isIntersecting) {
+      Object.values(dots).forEach(d => d.classList.remove('on'));
+      dots[e.target.id]?.classList.add('on');
+    }
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  SECTIONS.forEach(([id]) => { const el = document.getElementById(id); if (el) io.observe(el); });
+  cleanup.push(() => io.disconnect());
 }
 
 // ---------------------------------------------------------------- random puzzle (casual, doesn't touch your rating)

@@ -9,7 +9,8 @@ import { $, esc, toast, pct, fmtDate, clsIcon, CLS } from '../ui.js';
 import { CATALOG, byId, ytSearch } from '../data/catalog.js';
 import { recommend, openingProfile } from '../recommend.js';
 import { ANTI, antiById } from '../data/anti.js';
-import { videosCard } from '../videos.js';
+import { videosCard, videoTiles } from '../videos.js';
+import { learnVideos, beatVideos } from '../data/videos.js';
 
 let cleanup = [];
 export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
@@ -167,7 +168,7 @@ function renderAntiPage(root, id) {
           <a class="btn sm" href="${url(r, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${url(r, l)}">🧠 Drill</a> <a class="btn sm" href="#/bots?color=${a.you}&moves=${encodeURIComponent(l.moves)}">🤖 Play vs bot</a></div>`).join('')}
       </div>`).join('')}</div>
     </div>
-    ${videosCard(`how to beat the ${a.name}`, '🎬 Videos: how to beat it')}`;
+    ${videosCard(`how to beat the ${a.name}`, '🎬 Videos: how to beat it', beatVideos(a.id))}`;
   $('#anti-add', root).onclick = () => {
     let n = 0;
     for (const r of a.responses) for (const l of r.lines) {
@@ -183,15 +184,33 @@ function renderAntiPage(root, id) {
 }
 
 // ---------------------------------------------------------------- Videos
+/** Playable videos for a typed topic, matched against opening and counter-plan names. */
+function videosForTopic(t) {
+  const q = t.toLowerCase().replace(/^how to beat (the )?/, '').replace(/ (defen[cs]e|game|opening|system|gambit)$/, '').trim();
+  if (q.length < 3) return [];
+  const hit = name => { const n = name.toLowerCase(); return n.includes(q) || q.includes(n.replace(/ (defen[cs]e|game|opening|system|gambit)$/, '')); };
+  const seen = new Set(), out = [];
+  for (const v of [...CATALOG.filter(o => hit(o.name)).flatMap(o => learnVideos(o.id)), ...ANTI.filter(a => hit(a.name)).flatMap(a => beatVideos(a.id))]) {
+    if (!seen.has(v.id)) { seen.add(v.id); out.push(v); }
+  }
+  return out;
+}
+
 function renderVideos(body) {
   const topics = [...new Set([...CATALOG.map(o => o.name), ...ANTI.map(a => a.name)])].sort();
   const general = ['Opening principles', 'Opening traps', 'Beginner opening repertoire', 'How to study openings'];
   let topic = 'Sicilian Defense';
   try { topic = localStorage.getItem('cl-video-topic') || topic; } catch { /* ignore */ }
+  const library = CATALOG.filter(o => learnVideos(o.id).length).sort((a, b) => a.pop - b.pop);
   body.innerHTML = `
     <div class="card">
-      <h2>🎬 Opening videos</h2>
-      <p class="muted" style="margin-top:-6px">Pick an opening (or type anything) and jump straight to videos from top chess creators.</p>
+      <h2>🎬 Watch now</h2>
+      <p class="muted" style="margin-top:-6px">Opening videos from GothamChess, Eric Rosen, Saint Louis Chess Club and more — they play right here.</p>
+      ${library.map(o => `<h3 style="margin:18px 0 10px"><a href="#/openings?op=${o.id}" style="color:inherit">${esc(o.name)}</a></h3>${videoTiles(learnVideos(o.id))}`).join('')}
+    </div>
+    <div class="card">
+      <h2>🔎 Find a video</h2>
+      <p class="muted" style="margin-top:-6px">Pick an opening (or type anything) to see what plays here, plus each creator's videos on YouTube.</p>
       <div class="row">
         <input id="vid-q" list="vid-topics" value="${esc(topic)}" placeholder="e.g. Caro-Kann, Vienna Gambit, Stafford trap…" style="flex:1;min-width:240px">
         <datalist id="vid-topics">${topics.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
@@ -205,7 +224,7 @@ function renderVideos(body) {
     if (!t) return;
     try { localStorage.setItem('cl-video-topic', t); } catch { /* ignore */ }
     $('#vid-q', body).value = t;
-    $('#vid-out', body).innerHTML = videosCard(t, `🎬 ${esc(t)}`);
+    $('#vid-out', body).innerHTML = videosCard(t, `🎬 ${esc(t)}`, videosForTopic(t));
   };
   $('#vid-go', body).onclick = () => show($('#vid-q', body).value);
   $('#vid-q', body).onkeydown = e => { if (e.key === 'Enter') show(e.target.value); };
@@ -265,7 +284,7 @@ function renderOpening(root, id) {
           <a class="btn sm" href="${trainUrl(o, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${trainUrl(o, l)}">🧠 Drill</a> <a class="btn sm" href="#/bots?color=${o.side}&moves=${encodeURIComponent(l.moves)}">🤖 Play vs bot</a></span></div>`).join('')}
       </div>
     </div>
-    ${videosCard(o.name)}`;
+    ${videosCard(o.name, '🎬 Videos', learnVideos(o.id))}`;
   $('#op-addall', root).onclick = () => {
     let n = 0;
     for (const l of o.lines) {
