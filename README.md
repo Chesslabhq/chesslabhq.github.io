@@ -3,7 +3,7 @@
 A free, all-in-one chess improvement site that runs entirely in your browser. Import your games from
 Chess.com or Lichess by username, get a full Stockfish review, and train on your own mistakes.
 
-**▶ Try it: https://vyom-gupta-alt.github.io/chesslab/**
+**▶ Try it: https://chesslabhq.github.io/**
 
 ## Features
 
