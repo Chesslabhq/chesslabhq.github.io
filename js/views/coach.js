@@ -90,7 +90,7 @@ export function render(root) {
     type: 'radar',
     data: {
       labels: keys.map(k => `${AREAS[k].name} ${S[k] ?? '–'}`),
-      datasets: [{ data: keys.map(k => S[k] ?? 0), backgroundColor: 'rgba(27,172,166,.18)', borderColor: '#1baca6', pointBackgroundColor: keys.map(k => k === weakest ? '#e2503f' : '#1baca6'), pointRadius: keys.map(k => k === weakest ? 6 : 4) }],
+      datasets: [{ data: keys.map(k => S[k] ?? 0), backgroundColor: 'rgba(78,161,255,.2)', borderColor: '#4ea1ff', pointBackgroundColor: keys.map(k => k === weakest ? '#ff6257' : '#4ea1ff'), pointRadius: keys.map(k => k === weakest ? 6 : 4) }],
     },
     options: {
       maintainAspectRatio: false, plugins: { legend: { display: false } },
@@ -100,7 +100,7 @@ export function render(root) {
   if (causeList.length) {
     charts.push(new Chart($('#c-causes', root), {
       type: 'doughnut',
-      data: { labels: causeList.map(c => c[0]), datasets: [{ data: causeList.map(c => c[1]), backgroundColor: ['#ca3431', '#e6912c', '#f7c045', '#5c8bb0', '#1baca6', '#c86bd8', '#9b9790'], borderColor: '#262421' }] },
+      data: { labels: causeList.map(c => c[0]), datasets: [{ data: causeList.map(c => c[1]), backgroundColor: ['#ca3431', '#e6912c', '#f7c045', '#5c8bb0', '#1baca6', '#c86bd8', '#9b9790'], borderColor: '#131d33' }] },
       options: { maintainAspectRatio: false, plugins: { legend: { position: 'right' } } },
     }));
   }

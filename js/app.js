@@ -4,6 +4,7 @@ import { analyzer } from './analyzer.js';
 import { duePuzzles } from './training.js';
 import { syncAccounts } from './importers.js';
 import { $, $$, esc, toast, confirmBox } from './ui.js';
+import { initFx, animateView } from './fx.js';
 
 const routes = {
   dashboard: () => import('./views/dashboard.js'),
@@ -41,6 +42,7 @@ async function route() {
   current = mod;
   $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.route === (key === 'review' ? 'games' : key)));
   renderAccount();
+  animateView(view);
   try { await mod.render(view, params); }
   catch (e) { console.error(e); view.innerHTML = `<div class="card"><h2>Something went wrong</h2><p class="muted">${esc(e.message)}</p></div>`; }
 }
@@ -82,15 +84,16 @@ export function renderAccount() {
   };
 }
 
-export function applyBoardTheme() { document.body.dataset.board = state.settings.boardTheme || 'green'; }
+export function applyBoardTheme() { document.body.dataset.board = state.settings.boardTheme || 'blue'; }
 
 async function init() {
+  initFx();
   await loadAll();
   applyBoardTheme();
   tagOpenings(Object.values(state.games)).then(n => { if (n) save('games'); });
   if (window.Chart) {
-    Chart.defaults.color = '#9b9790';
-    Chart.defaults.borderColor = '#3a3733';
+    Chart.defaults.color = '#93a4c0';
+    Chart.defaults.borderColor = 'rgba(92,140,214,.16)';
     Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
   }
   analyzer.events.addEventListener('update', renderAnalyzerStatus);

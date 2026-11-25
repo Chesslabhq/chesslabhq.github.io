@@ -82,7 +82,7 @@ function renderBoard(root) {
   <div class="card" style="padding:0"><div class="table-wrap"><table class="tbl">
     <thead><tr><th>#</th><th>Player</th><th>Rating</th><th>Your record vs them</th><th>Status</th><th></th></tr></thead>
     <tbody>${rows.map((r, i) => r.type === 'you' ? `
-      <tr style="background:#2b3a1f"><td><b>${i + 1}</b></td><td style="font-size:16px"><b>🙂 You</b></td><td><b style="font-size:16px;color:var(--accent)">${r.rating}</b></td><td class="muted">${R.games.length} games</td><td>${below ? `Ahead of ${below.avatar} ${esc(below.name)}` : ''}</td><td></td></tr>` : `
+      <tr style="background:#17335c"><td><b>${i + 1}</b></td><td style="font-size:16px"><b>🙂 You</b></td><td><b style="font-size:16px;color:var(--accent)">${r.rating}</b></td><td class="muted">${R.games.length} games</td><td>${below ? `Ahead of ${below.avatar} ${esc(below.name)}` : ''}</td><td></td></tr>` : `
       <tr><td class="muted">${i + 1}</td><td><span style="font-size:20px">${r.avatar}</span> ${esc(r.name)}${r.custom ? ' <span class="muted small">(custom)</span>' : ''}</td><td>${r.rating}</td>
         <td>${r.rec ? `<span style="color:#a7dc75">${r.rec.win}W</span> · ${r.rec.draw}D · <span style="color:#f08a7c">${r.rec.loss}L</span>` : '<span class="muted">Not played</span>'}</td>
         <td>${r.rec?.win ? '<span class="pill win">Beaten ✓</span>' : r.rec ? '<span class="pill loss">Unbeaten</span>' : ''}</td>
@@ -104,11 +104,11 @@ function renderSetup(root) {
   root.innerHTML = `
   <div class="page-head"><div><h1>🤖 Play bots</h1><p>Pick an opponent, set the rating, and start from any opening to practise attacking with it.</p></div></div>
   ${botTabs('play')}
-  <div class="grid g2" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)">
+  <div class="grid bots-grid">
     <div class="card">
       <h2>Choose your opponent</h2>
       <div class="theme-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))" id="bt-bots">${BOTS.map(b => `
-        <button class="theme-btn" data-bot="${b.id}" style="text-align:center;${b.id === last.botId ? 'border-color:var(--accent);background:#2b3a1f' : ''}">
+        <button class="theme-btn" data-bot="${b.id}" style="text-align:center;${b.id === last.botId ? 'border-color:var(--accent);background:#17335c' : ''}">
           <div style="font-size:34px">${b.avatar}</div><div class="tn">${esc(b.name)}</div><div class="ts"><b>${b.rating}</b></div></button>`).join('')}</div>
       <p class="muted" id="bt-style" style="margin:12px 0 0;line-height:1.5"></p>
     </div>
@@ -144,7 +144,7 @@ function renderSetup(root) {
     if (!b) return;
     const bot = BOTS.find(x => x.id === b.dataset.bot);
     last.botId = bot.id; last.rating = bot.rating;
-    $$('[data-bot]', root).forEach(x => { const on = x === b; x.style.borderColor = on ? 'var(--accent)' : ''; x.style.background = on ? '#2b3a1f' : ''; });
+    $$('[data-bot]', root).forEach(x => { const on = x === b; x.style.borderColor = on ? 'var(--accent)' : ''; x.style.background = on ? '#17335c' : ''; });
     $('#bt-rating', root).value = bot.rating; $('#bt-rval', root).textContent = bot.rating;
     showBot();
   };
@@ -288,7 +288,7 @@ function playGame(root, { bot, color, opening, tc }) {
       let ms = clock[c];
       if (!over && clock.turnStart && chess.turn() === c) ms -= Date.now() - clock.turnStart;
       const el = $('#clk-' + c, root);
-      if (el) { el.textContent = fmtClock(ms); el.style.background = chess.turn() === c && !over ? '#45413b' : ''; el.style.color = ms < 20000 ? 'var(--red)' : ''; }
+      if (el) { el.textContent = fmtClock(ms); el.style.background = chess.turn() === c && !over ? '#24406e' : ''; el.style.color = ms < 20000 ? 'var(--red)' : ''; }
       if (!over && ms <= 0 && clock.turnStart) finish(c === color ? 'loss' : 'win', 'on time');
     }
   }

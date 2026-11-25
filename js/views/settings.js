@@ -19,7 +19,7 @@ export function render(root) {
         <select id="s-depth">${[8, 10, 12, 14, 16, 18].map(d => `<option ${d === s.depth ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
       <label class="check"><input type="checkbox" id="s-cloud" ${s.useCloud ? 'checked' : ''}> Use Lichess cloud evaluations for opening positions (faster, enables “Book” moves)</label>
       <label class="field">Puzzle difficulty<select id="s-diff">${['easiest', 'easier', 'normal', 'harder', 'hardest'].map(d => `<option ${d === s.puzzleDifficulty ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
-      <label class="field">Board colours<select id="s-board">${['green', 'brown', 'blue', 'purple'].map(d => `<option ${d === s.boardTheme ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
+      <label class="field">Board colours<select id="s-board">${['blue', 'green', 'brown', 'purple'].map(d => `<option ${d === s.boardTheme ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
     </div>
   </div>
   <div class="row" style="margin-top:16px"><button class="btn primary lg" id="s-save">Save settings</button></div>
@@ -37,7 +37,7 @@ export function render(root) {
     Object.assign(s, {
       chesscomUser: $('#s-cc', root).value.trim(), lichessUser: $('#s-li', root).value.trim(),
       autoSync: $('#s-auto', root).checked, depth: +$('#s-depth', root).value, depthChosen: true, useCloud: $('#s-cloud', root).checked,
-      puzzleDifficulty: $('#s-diff', root).value, boardTheme: $('#s-board', root).value,
+      puzzleDifficulty: $('#s-diff', root).value, boardTheme: $('#s-board', root).value, boardChosen: true,
     });
     save('settings');
     applyBoardTheme();

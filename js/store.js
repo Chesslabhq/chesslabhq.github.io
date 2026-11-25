@@ -33,7 +33,7 @@ async function idbSet(key, val) {
 
 export const DEFAULT_SETTINGS = {
   chesscomUser: '', lichessUser: '', depth: 14, depthChosen: false, useCloud: true, autoSync: true,
-  puzzleDifficulty: 'normal', boardTheme: 'green', lastSync: {},
+  puzzleDifficulty: 'normal', boardTheme: 'blue', boardChosen: false, lastSync: {},
 };
 
 export const state = {
@@ -54,6 +54,7 @@ export async function loadAll() {
       if (v !== undefined) state[k] = k === 'settings' ? { ...DEFAULT_SETTINGS, ...v } : v;
     }
     if (!state.settings.depthChosen) state.settings.depth = DEFAULT_SETTINGS.depth;
+    if (!state.settings.boardChosen) state.settings.boardTheme = DEFAULT_SETTINGS.boardTheme;
   } catch (e) { console.warn('Storage unavailable, running in memory', e); }
 }
 

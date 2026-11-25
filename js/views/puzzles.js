@@ -111,7 +111,7 @@ function renderStats(root) {
   if (window.Chart && hist.length) {
     const ch = new Chart($('#ps-chart', root), {
       type: 'line',
-      data: { labels: hist.map((_, i) => i + 1), datasets: [{ label: 'Rating', data: hist.map(h => h.r), borderColor: '#81b64c', pointRadius: 0, tension: .25 }] },
+      data: { labels: hist.map((_, i) => i + 1), datasets: [{ label: 'Rating', data: hist.map(h => h.r), borderColor: '#4ea1ff', pointRadius: 0, tension: .25 }] },
       options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } },
     });
     cleanup.push(() => ch.destroy());

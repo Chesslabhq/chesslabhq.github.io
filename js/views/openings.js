@@ -163,7 +163,7 @@ function renderAntiPage(root, id) {
       <div class="grid g2">${a.responses.map(r => `<div class="card" style="background:var(--bg2)">
         <div class="spread"><b style="font-size:16px">${esc(r.name)}</b><span class="muted small">${STYLE[r.style]} · ${THEORY[r.theory]}</span></div>
         <p class="muted" style="margin:6px 0 10px">${esc(r.desc)}</p>
-        ${r.lines.map(l => `<div style="padding:8px 0;border-top:1px solid #33302c"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
+        ${r.lines.map(l => `<div style="padding:8px 0;border-top:1px solid #21304e"><b>${esc(l.name)}</b><div class="muted small" style="margin:4px 0 8px">${esc(fmtLine(l.moves.split(' ')))}</div>
           <a class="btn sm" href="${url(r, l, 'learn')}">📖 Learn</a> <a class="btn sm primary" href="${url(r, l)}">🧠 Drill</a> <a class="btn sm" href="#/bots?color=${a.you}&moves=${encodeURIComponent(l.moves)}">🤖 Play vs bot</a></div>`).join('')}
       </div>`).join('')}</div>
     </div>
@@ -218,7 +218,7 @@ function renderPopular(body) {
   const P = openingProfile();
   const list = [...CATALOG].filter(o => o.style !== 'tricky').sort((a, b) => a.pop - b.pop);
   const top = obj => Object.entries(obj).filter(([k]) => k !== 'Unknown').sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const oppTable = (rows, total) => rows.length ? `<table class="tbl"><tbody>${rows.map(([n, c]) => `<tr><td>${esc(n)}</td><td style="width:45%"><div class="bar"><i style="width:${Math.round(c / rows[0][1] * 100)}%"></i></div></td><td class="muted">${c} (${pct(c, total)}%)</td></tr>`).join('')}</tbody></table>` : '<p class="muted">Not enough games yet.</p>';
+  const oppTable = (rows, total) => rows.length ? `<div class="table-wrap"><table class="tbl"><tbody>${rows.map(([n, c]) => `<tr><td>${esc(n)}</td><td style="width:45%"><div class="bar"><i style="width:${Math.round(c / rows[0][1] * 100)}%"></i></div></td><td class="muted">${c} (${pct(c, total)}%)</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Not enough games yet.</p>';
   body.innerHTML = `
     <div class="card"><h2>Most popular openings</h2><p class="muted" style="margin-top:-6px">The openings you'll meet most at club and master level, ranked by how often they're played.</p>
       <div class="table-wrap"><table class="tbl"><tbody>${list.map((o, i) => `<tr class="click" onclick="location.hash='#/openings?op=${o.id}'">
@@ -315,14 +315,14 @@ async function renderMine(body) {
   const section = c => {
     const rows = Object.values(agg[c]).filter(r => r.moves.length >= 2).sort((a, b) => b.games - a.games).slice(0, 10);
     if (!rows.length) return `<p class="muted">Not enough games as ${c === 'w' ? 'White' : 'Black'}.</p>`;
-    return `<table class="tbl"><thead><tr><th>Line you play</th><th>Games</th><th>Score</th><th>Then usually…</th><th></th></tr></thead><tbody>${rows.map(r => {
+    return `<div class="table-wrap"><table class="tbl"><thead><tr><th>Line you play</th><th>Games</th><th>Score</th><th>Then usually…</th><th></th></tr></thead><tbody>${rows.map(r => {
       const sc = pct(r.win + r.draw / 2, r.games);
       const ex = Object.entries(r.exits).sort((a, b) => b[1] - a[1])[0];
       const exTxt = ex ? `${ex[0].startsWith('you') ? 'you' : 'they'} leave theory with <b>${esc(ex[0].split('|')[1])}</b>` : '—';
       return `<tr><td><b>${esc(r.opening?.name || 'Unnamed line')}</b><div class="muted small">${esc(fmtLine(r.moves))}</div></td><td>${r.games}</td>
         <td><span style="color:${sc >= 55 ? '#a7dc75' : sc < 45 ? '#f08a7c' : 'inherit'}">${sc}%</span></td><td class="small">${exTxt}</td>
         <td><a class="btn sm primary" href="#/openings?train=line&color=${c}&moves=${encodeURIComponent(r.moves.join(' '))}&name=${encodeURIComponent(r.opening?.name || 'My line')}">Drill</a></td></tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table></div>`;
   };
   leaks.sort((a, b) => b.rec.loss - a.rec.loss);
   body.innerHTML = `
@@ -434,7 +434,7 @@ function renderTrainer(root, params) {
   function drawMoves() {
     $('#tr-moves', root).innerHTML = `<div class="small" style="line-height:1.9">${line.moves.map((m, i) => {
       const shown = i < step || (mode === 'learn' && i === step);
-      return `${i % 2 === 0 ? `<span class="muted">${i / 2 + 1}.</span> ` : ''}<span style="${i === step ? 'background:#45413b;padding:1px 4px;border-radius:4px' : ''}">${shown ? esc(m) : '?'}</span> `;
+      return `${i % 2 === 0 ? `<span class="muted">${i / 2 + 1}.</span> ` : ''}<span style="${i === step ? 'background:#24406e;padding:1px 4px;border-radius:4px' : ''}">${shown ? esc(m) : '?'}</span> `;
     }).join('')}</div>`;
   }
   function start() {

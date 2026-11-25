@@ -8,7 +8,7 @@ import { $, esc, toast, fmtDate, cap, pct, themeName, todayKey } from '../ui.js'
 let charts = [];
 export function destroy() { charts.forEach(c => c.destroy()); charts = []; }
 
-const PALETTE = ['#81b64c', '#5c8bb0', '#e6912c', '#1baca6', '#c86bd8', '#f7c045', '#ee6b55', '#9b9790'];
+const PALETTE = ['#4ea1ff', '#22c7c0', '#e6912c', '#1baca6', '#c86bd8', '#f7c045', '#ee6b55', '#9b9790'];
 
 export function render(root) {
   destroy();
@@ -80,13 +80,13 @@ export function render(root) {
     <h2>Openings</h2>
     <div class="grid g2">${['w', 'b'].map(c => {
       const ops = openingStats().filter(o => o.color === c).slice(0, 7);
-      return `<div><h3>As ${c === 'w' ? 'White' : 'Black'}</h3>${ops.length ? `<table class="tbl"><thead><tr><th>Opening</th><th>Games</th><th>Score</th><th>Acc.</th></tr></thead><tbody>${ops.map(o => `<tr><td>${esc(o.name)}</td><td>${o.games}</td><td><span style="color:${o.score >= 55 ? '#a7dc75' : o.score < 45 ? '#f08a7c' : 'inherit'}">${o.score}%</span> <span class="muted small">${o.win}/${o.draw}/${o.loss}</span></td><td class="muted">${o.acc != null ? o.acc.toFixed(0) + '%' : '—'}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No games.</p>'}</div>`;
+      return `<div><h3>As ${c === 'w' ? 'White' : 'Black'}</h3>${ops.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Opening</th><th>Games</th><th>Score</th><th>Acc.</th></tr></thead><tbody>${ops.map(o => `<tr><td>${esc(o.name)}</td><td>${o.games}</td><td><span style="color:${o.score >= 55 ? '#a7dc75' : o.score < 45 ? '#f08a7c' : 'inherit'}">${o.score}%</span> <span class="muted small">${o.win}/${o.draw}/${o.loss}</span></td><td class="muted">${o.acc != null ? o.acc.toFixed(0) + '%' : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No games.</p>'}</div>`;
     }).join('')}</div>
   </div>
 
   <div class="card" style="margin-top:16px">
     <div class="spread"><h2>Recent games</h2><a href="#/games">All games →</a></div>
-    <table class="tbl"><tbody>${games.slice(0, 8).map(g => {
+    <div class="table-wrap"><table class="tbl"><tbody>${games.slice(0, 8).map(g => {
       const r = userResult(g), a = userAcc(g), c = userCounts(g);
       return `<tr class="click" onclick="location.hash='#/review/${encodeURIComponent(g.id)}'">
         <td>${g.userColor === 'w' ? '⚪' : '⚫'} ${esc(g.userColor === 'w' ? g.black : g.white)} <span class="muted">(${(g.userColor === 'w' ? g.blackElo : g.whiteElo) ?? '?'})</span></td>
@@ -95,7 +95,7 @@ export function render(root) {
         <td>${a != null ? `<b>${a.toFixed(1)}%</b>` : '<span class="muted">—</span>'}</td>
         <td class="muted small">${g.analysis ? `${c.blunder || 0} blunders · ${c.mistake || 0} mistakes` : 'not analysed'}</td>
         <td class="muted small">${fmtDate(g.date)}</td></tr>`;
-    }).join('')}</tbody></table>
+    }).join('')}</tbody></table></div>
   </div>`;
 
   $('#d-sync', root)?.addEventListener('click', async e => {
@@ -137,7 +137,7 @@ function drawCharts(root, an, ms) {
         labels: pts.map(x => fmtDate(x.g.date)),
         datasets: [
           { label: 'Game accuracy', data: pts.map(x => x.a), borderColor: 'transparent', backgroundColor: pts.map(x => userResult(x.g) === 'win' ? '#81b64c' : userResult(x.g) === 'loss' ? '#e2503f' : '#9b9790'), pointRadius: 4, showLine: false },
-          { label: '5-game average', data: rolling, borderColor: '#5c8bb0', pointRadius: 0, tension: .3, borderWidth: 2 },
+          { label: '5-game average', data: rolling, borderColor: '#4ea1ff', pointRadius: 0, tension: .3, borderWidth: 2 },
         ],
       },
       options: { maintainAspectRatio: false, scales: { y: { suggestedMin: 50, max: 100 }, x: { ticks: { maxTicksLimit: 6 } } } },
