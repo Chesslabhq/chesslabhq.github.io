@@ -417,6 +417,15 @@ input[type="range"] { accent-color: var(--accent); }
 .vid-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .vid-mtitle { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Puzzle leaderboard tiers */
+.pz-ladder { display: grid; grid-template-columns: repeat(auto-fit, minmax(74px, 1fr)); gap: 6px; }
+.pz-step { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 10px; background: #0f1a30; border: 1px solid rgba(92, 140, 214, .16); opacity: .5; text-align: center; }
+.pz-step span { font-size: 20px; }
+.pz-step b { font-size: 11px; }
+.pz-step small { font-size: 10px; color: var(--muted); }
+.pz-step.done { opacity: .85; }
+.pz-step.on { opacity: 1; border-color: var(--accent); background: #17335c; box-shadow: 0 0 0 1px var(--accent), 0 6px 18px rgba(35, 116, 225, .3); }
+
 /* Scroll motion */
 #scroll-bar {
   position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1100; pointer-events: none;

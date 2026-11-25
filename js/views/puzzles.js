@@ -7,6 +7,7 @@ import { $, $$, esc, toast, themeName, THEMES, CLS, clsIcon, fmtDate, pct, today
 import { refreshBadges } from '../app.js';
 import { loadPuzzles, pickPuzzle, seedPuzzleRating } from '../puzzledb.js';
 import { renderRush, destroyRush } from './rush.js';
+import { renderPuzzleBoard } from './pzboard.js';
 
 let cleanup = [];
 export function destroy() { destroyRush(); cleanup.forEach(f => f()); cleanup = []; }
@@ -23,11 +24,12 @@ export function render(root, params) {
   if (mode === 'bank') return renderBank(root);
   if (mode === 'stats') return renderStats(root);
   if (mode === 'rush') return renderRush(root, header('rush'));
+  if (mode === 'board') return renderPuzzleBoard(root, header('board'), params);
   return renderSession(root, params);
 }
 
 function header(active) {
-  const tabs = [['home', 'Overview'], ['rated', '🎯 Rated'], ['rush', '⚡ Puzzle Rush'], ['drill', 'Mistake drill'], ['weak', 'Weakness trainer'], ['themes', 'By theme'], ['daily', 'Daily'], ['bank', 'My puzzle bank'], ['stats', 'Stats']];
+  const tabs = [['home', 'Overview'], ['rated', '🎯 Rated'], ['rush', '⚡ Puzzle Rush'], ['board', '🏆 Leaderboard'], ['drill', 'Mistake drill'], ['weak', 'Weakness trainer'], ['themes', 'By theme'], ['daily', 'Daily'], ['bank', 'My puzzle bank'], ['stats', 'Stats']];
   return `<div class="tabs">${tabs.map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/puzzles?mode=${k}'">${l}</button>`).join('')}</div>`;
 }
 

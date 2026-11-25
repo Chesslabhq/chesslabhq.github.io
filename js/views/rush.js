@@ -15,7 +15,16 @@ const START = 500, STEP = 55, MAX_TARGET = 2850, STRIKES = 3;
 let stop = null;
 export function destroyRush() { stop?.(); stop = null; }
 
-const rushData = () => state.pstats.rush || (state.pstats.rush = { best: {}, runs: [] });
+export const rushData = () => state.pstats.rush || (state.pstats.rush = { best: {}, runs: [] });
+export { MODES };
+
+// ChessLab's own tiers for a single Rush score
+export const RUSH_TIERS = [
+  { min: 0, name: 'Wood', icon: '🪵' }, { min: 6, name: 'Bronze', icon: '🟤' }, { min: 12, name: 'Silver', icon: '⚪' },
+  { min: 18, name: 'Gold', icon: '🟡' }, { min: 25, name: 'Platinum', icon: '💠' }, { min: 32, name: 'Diamond', icon: '💎' },
+  { min: 40, name: 'Legend', icon: '👑' },
+];
+export const rushTier = score => [...RUSH_TIERS].reverse().find(t => score >= t.min);
 const fmt = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 export function renderRush(root, tabs) {
@@ -138,9 +147,13 @@ function play(root, modeKey, tabs) {
     const isBest = score > oldBest;
     if (isBest) d.best[modeKey] = score;
     const top = Math.max(0, ...results.filter(r => r.ok).map(r => r.rating));
-    d.runs.unshift({ mode: modeKey, score, top, t: Date.now() });
-    d.runs.length = Math.min(d.runs.length, 50);
+    const t = Date.now();
+    d.runs.unshift({ mode: modeKey, score, top, t });
+    d.runs.length = Math.min(d.runs.length, 400);
     save('pstats');
+    const ranked = d.runs.filter(r => r.mode === modeKey).sort((a, b) => b.score - a.score || b.top - a.top);
+    const rank = ranked.findIndex(r => r.t === t) + 1;
+    const tier = rushTier(score);
     const missed = results.filter(r => !r.ok);
     root.innerHTML = `
     <div class="page-head"><div><h1>${mode.icon} Run over</h1><p>${mode.name}</p></div></div>
@@ -148,6 +161,7 @@ function play(root, modeKey, tabs) {
       <div class="muted">You solved</div><div style="font-size:64px;font-weight:800;color:var(--accent);line-height:1.1">${score}</div>
       <p style="font-size:16px;margin:6px 0">${isBest && score ? '🏆 New personal best!' : `Your best: ${d.best[modeKey] ?? 0}`}</p>
       <p class="muted">Hardest puzzle solved: ${top || '—'}</p>
+      <p style="margin:4px 0 14px">${tier.icon} <b>${tier.name}</b> tier · #${rank} of ${ranked.length} on your ${esc(mode.name)} leaderboard · <a href="#/puzzles?mode=board">Leaderboard →</a></p>
       <div class="row" style="justify-content:center"><button class="btn primary lg" id="rs-again">↻ Play again</button><button class="btn lg" id="rs-menu">All modes</button></div>
     </div>
     ${missed.length ? `<div class="card"><h2>Puzzles you missed</h2>${missed.map(r => `<div class="insight"><span class="ic">❌</span><span style="flex:1">Rated <b>${r.rating}</b> · ${r.puzzle.solver === 'w' ? 'White' : 'Black'} to move</span><a class="btn sm" href="#/analysis?fen=${encodeURIComponent(r.puzzle.fen)}">Analyse</a> <a class="btn sm ghost" href="${r.puzzle.url}" target="_blank" rel="noopener">Lichess ↗</a></div>`).join('')}</div>` : ''}`;

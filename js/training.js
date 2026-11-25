@@ -32,7 +32,8 @@ export function recordResult(puzzle, firstTry) {
     const k = state.pstats.history.length < 30 ? 40 : 20;
     state.pstats.rating = Math.round(state.pstats.rating + k * ((firstTry ? 1 : 0) - exp));
   }
-  state.pstats.history.push({ t: Date.now(), id: puzzle.id, ok: firstTry, r: state.pstats.rating, src: puzzle.source });
+  // pr = the puzzle's own rating (used by the leaderboard for "hardest puzzle solved")
+  state.pstats.history.push({ t: Date.now(), id: puzzle.id, ok: firstTry, r: state.pstats.rating, src: puzzle.source, pr: puzzle.rating || null });
   if (state.pstats.history.length > 3000) state.pstats.history.splice(0, 1000);
   save('pstats');
 
