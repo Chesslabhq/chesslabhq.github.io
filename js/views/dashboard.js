@@ -165,7 +165,7 @@ function renderWelcome(root) {
   const s = state.settings;
   root.innerHTML = `
   <div class="card hero" style="max-width:760px;margin:30px auto">
-    <div style="font-size:46px">♞</div>
+    <img src="assets/logo.svg" alt="" style="width:110px;height:110px">
     <h1 style="font-size:30px">Your all-in-one chess improvement hub</h1>
     <p class="muted" style="line-height:1.6;font-size:15px">Connect your Chess.com and/or Lichess account. ChessLab pulls in your games automatically, reviews every move with Stockfish (accuracy, brilliants, blunders, missed wins), turns your mistakes into puzzles, finds your weak tactical patterns and tracks your goals.</p>
     <div class="grid g2" style="margin-top:18px">

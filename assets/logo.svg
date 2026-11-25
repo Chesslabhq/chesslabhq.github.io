@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="url(#g)" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round">
+  <!-- ChessLab: a chess knight in a lab coat and goggles, holding a bubbling flask and a test tube -->
+  <defs>
+    <linearGradient id="g" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9fd8ff"/>
+      <stop offset=".55" stop-color="#4ea1ff"/>
+      <stop offset="1" stop-color="#2f6fe0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- knight head -->
+  <path d="M38.5 31.5C40.6 25 41.4 18.6 37.4 12.6L35.6 7.6L32.4 11.6C27.2 11.8 22.4 15 19.4 19.8L16.2 24.8C15.6 26.9 17 28.6 19.1 28.1L24.2 26.5C25.3 28.8 25 31 23.2 33.2"/>
+  <path d="M33.8 9.6L32.4 11.6"/>
+  <!-- mane -->
+  <path d="M37.9 14.2L40.4 14.6M39.2 18.6L41.7 19.4M39.6 23.2L42 24.2M39.2 27.6L41.4 28.8"/>
+  <!-- nostril & mouth -->
+  <path d="M17.8 25.6l.6.2M19.6 27.6c.9-.3 1.7-.6 2.5-.9"/>
+  <!-- goggles with strap -->
+  <ellipse cx="27.6" cy="17.3" rx="3.3" ry="2.5"/>
+  <circle cx="27.4" cy="17.3" r=".7"/>
+  <path d="M30.9 16.9L36.6 15.2M24.3 17.6L22.6 18.2"/>
+
+  <!-- lab coat -->
+  <path d="M23.2 33.2C20 34.1 17.4 36 16.4 39.6L14.6 58.4H49.4L47.6 39.6C46.6 36 43.9 33.9 40.5 32.4"/>
+  <!-- collar & lapels -->
+  <path d="M25.4 32.4L31.8 44.6L38.6 32M25.4 32.4L27.6 37.4L29.6 36.4M38.6 32L36.2 37.2L34.2 36.2"/>
+  <!-- buttons, pocket and pen -->
+  <circle cx="31.8" cy="48.2" r=".7"/><circle cx="31.8" cy="52.4" r=".7"/><circle cx="31.8" cy="56.4" r=".7"/>
+  <path d="M36.4 47.6H42.2L41.8 52.2H36.8Z"/>
+  <path d="M38.4 47.6L39.3 43.8L40 44L39.4 47.6"/>
+  
+  <!-- left arm holding an erlenmeyer flask -->
+  <path d="M17.6 39.6C15.6 42.2 13.6 44.2 11.8 45.2"/>
+  <path d="M6.6 39.8H10.6M7.2 39.8V45L3 53.2C2.6 54.2 3.2 54.8 4.2 54.8H13.6C14.6 54.8 15.2 54.2 14.8 53.2L10.6 45V39.8"/>
+  <path d="M4.8 50.4H13"/>
+  <circle cx="10.9" cy="45.9" r="1.5"/>
+  <!-- bubbles -->
+  <circle cx="8.9" cy="36.8" r="1"/><circle cx="10.9" cy="33.4" r=".7"/><circle cx="8" cy="31" r=".5"/>
+  <circle cx="7.6" cy="52.6" r=".45"/><circle cx="10.6" cy="52" r=".4"/>
+
+  <!-- right arm holding a test tube -->
+  <path d="M46.4 39.6C48 42 49.8 43.6 51.4 44.4"/>
+  <path d="M51.2 35.4H56.2M51.8 35.4V46.6C51.8 48.6 55.6 48.6 55.6 46.6V35.4"/>
+  <path d="M51.8 43H55.6"/>
+  <circle cx="51.6" cy="44.8" r="1.5"/>
+  <circle cx="53.4" cy="32.8" r=".55"/><circle cx="54.6" cy="30.2" r=".4"/>
+</svg>

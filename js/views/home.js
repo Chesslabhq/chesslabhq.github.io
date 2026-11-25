@@ -53,7 +53,7 @@ export function render(root) {
   <div class="card hero home-hero">
     <div class="spread">
       <div style="min-width:0;flex:1 1 380px">
-        <h1 style="font-size:34px;margin-bottom:6px">♞ ChessLab</h1>
+        <div class="home-brand"><img class="home-logo" src="assets/logo.svg" alt="ChessLab logo: a chess knight in a lab coat"><h1 style="font-size:34px;margin:0">ChessLab</h1></div>
         <p class="muted" style="margin:0 0 14px;font-size:15px">Analyse your games, train your weaknesses, and get better at chess — free.</p>
         <div class="insight" style="border:none;padding:0"><span class="ic">💡</span><span id="h-fact" style="line-height:1.55">${esc(fact)}</span></div>
       </div>

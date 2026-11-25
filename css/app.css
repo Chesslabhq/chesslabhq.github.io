@@ -426,6 +426,13 @@ input[type="range"] { accent-color: var(--accent); }
 .pz-step.done { opacity: .85; }
 .pz-step.on { opacity: 1; border-color: var(--accent); background: #17335c; box-shadow: 0 0 0 1px var(--accent), 0 6px 18px rgba(35, 116, 225, .3); }
 
+/* Logo */
+.brand-mark { width: 40px; height: 40px; padding: 3px; background: #0d1729; border: 1px solid rgba(98, 170, 255, .35); box-shadow: 0 4px 16px rgba(46, 125, 255, .25); }
+.brand-mark img { width: 100%; height: 100%; display: block; }
+.home-brand { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.home-logo { width: 92px; height: 92px; flex-shrink: 0; filter: drop-shadow(0 6px 18px rgba(46, 125, 255, .35)); }
+@media (max-width: 800px) { .brand-mark { width: 34px; height: 34px; } .home-logo { width: 68px; height: 68px; } }
+
 /* Scroll motion */
 #scroll-bar {
   position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1100; pointer-events: none;
