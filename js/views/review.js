@@ -4,6 +4,7 @@ import { Board } from '../board.js';
 import { analyzer } from '../analyzer.js';
 import { playedRating, verdict } from '../perf.js';
 import { LiveAnalyzer } from '../engine.js';
+import { phaseOf } from '../tactics.js';
 import { parseGame, whiteWin, fmtEval, moveComment, coachExplain, pvToSan, uciToSan, moverWin } from '../analysis.js';
 import { $, $$, esc, fmtDate, cap, CLS, CLS_ORDER, clsIcon, toast } from '../ui.js';
 
@@ -356,7 +357,7 @@ export function render(root, params) {
     if (!fen) { live.stop(); return; }
     let t = 0;
     live.start(fen, {
-      multipv: 3, maxDepth: 20, onInfo: lines => {
+      multipv: 3, maxDepth: phaseOf(fen) === 'endgame' ? 30 : 20, onInfo: lines => {
         liveLines = lines;
         const now = Date.now();
         if (now - t < 250) return;

@@ -28,14 +28,23 @@ function parseInfo(line, turn) {
 
 export class Engine {
   constructor() {
+    this.chain = Promise.resolve();
+    this.start();
+  }
+  start() {
     this.worker = makeWorker();
     this.listeners = [];
     this.worker.onmessage = e => {
       const line = typeof e.data === 'string' ? e.data : String(e.data);
       for (const l of [...this.listeners]) l(line);
     };
-    this.chain = Promise.resolve();
     this.ready = this._init();
+  }
+  /** This Stockfish build only notices "stop" between search iterations, which in hard endgames can take
+   *  many seconds. When it won't stop promptly, replace the worker (takes well under a second). */
+  restart() {
+    this.worker.terminate();
+    this.start();
   }
   send(cmd) { this.worker.postMessage(cmd); }
   waitFor(pred) {
@@ -56,7 +65,7 @@ export class Engine {
    * opts: { depth, multipv, infinite, skill (0-20), onInfo(lines), token:{cancelled} }
    */
   analyze(fen, opts = {}) {
-    const { depth = 14, multipv = 1, infinite = false, skill = 20, onInfo, token } = opts;
+    const { depth = 14, multipv = 1, infinite = false, skill = 20, movetime = 0, onInfo, token } = opts;
     const job = async () => {
       await this.ready;
       if (token?.cancelled) return null;
@@ -75,10 +84,26 @@ export class Engine {
       this.listeners.push(onLine);
       this.send('position fen ' + fen);
       this.send(infinite ? 'go infinite' : `go depth ${depth}`);
-      if (token) token.stop = () => this.send('stop');
-      const bm = await this.waitFor(l => l.startsWith('bestmove'));
+      // Stopping: ask nicely; if no answer within 500 ms, force it (see restart()).
+      let forceTimer = null, timer = null, forced;
+      const forcedP = new Promise(res => { forced = res; });
+      const requestStop = () => {
+        if (forceTimer) return;
+        this.send('stop');
+        forceTimer = setTimeout(() => forced('forced'), 500);
+      };
+      if (token) token.stop = requestStop;
+      // Time limit (this build ignores "movetime" when a depth is given, so it's enforced here)
+      if (movetime) timer = setTimeout(requestStop, movetime);
+      const bm = await Promise.race([this.waitFor(l => l.startsWith('bestmove')), forcedP]);
+      clearTimeout(timer); clearTimeout(forceTimer);
       this.listeners = this.listeners.filter(x => x !== onLine);
-      return { lines: sorted(), bestmove: bm.split(' ')[1] };
+      const result = sorted();
+      if (bm === 'forced') {
+        this.restart();
+        return { lines: result, bestmove: result[0]?.pv?.[0] || null, stopped: true };
+      }
+      return { lines: result, bestmove: bm.split(' ')[1] };
     };
     const p = this.chain.then(job);
     this.chain = p.catch(() => {});

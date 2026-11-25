@@ -17,6 +17,8 @@ export function render(root) {
       <h2>Analysis</h2>
       <label class="field">Engine depth <span class="hint">Higher = stronger but slower. 14 is a good balance (~1 min per game); 16+ for deep reviews.</span>
         <select id="s-depth">${[8, 10, 12, 14, 16, 18].map(d => `<option ${d === s.depth ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
+      <label class="field">Endgame depth <span class="hint">Endgame positions in a review search deeper, up to 6 seconds per move. Depth 30 is the most precise.</span>
+        <select id="s-egdepth">${[[0, 'Same as above'], [20, '20'], [24, '24'], [30, '30']].map(([v, l]) => `<option value="${v}" ${v === (s.endgameDepth ?? 30) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="check"><input type="checkbox" id="s-cloud" ${s.useCloud ? 'checked' : ''}> Use Lichess cloud evaluations for opening positions (faster, enables “Book” moves)</label>
       <label class="field">Puzzle difficulty<select id="s-diff">${['easiest', 'easier', 'normal', 'harder', 'hardest'].map(d => `<option ${d === s.puzzleDifficulty ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
       <label class="field">Board colours<select id="s-board">${['blue', 'green', 'brown', 'purple'].map(d => `<option ${d === s.boardTheme ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
@@ -36,7 +38,7 @@ export function render(root) {
   $('#s-save', root).onclick = () => {
     Object.assign(s, {
       chesscomUser: $('#s-cc', root).value.trim(), lichessUser: $('#s-li', root).value.trim(),
-      autoSync: $('#s-auto', root).checked, depth: +$('#s-depth', root).value, depthChosen: true, useCloud: $('#s-cloud', root).checked,
+      autoSync: $('#s-auto', root).checked, depth: +$('#s-depth', root).value, depthChosen: true, endgameDepth: +$('#s-egdepth', root).value, useCloud: $('#s-cloud', root).checked,
       puzzleDifficulty: $('#s-diff', root).value, boardTheme: $('#s-board', root).value, boardChosen: true,
     });
     save('settings');

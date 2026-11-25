@@ -97,7 +97,8 @@ async function cloudEval(fen) {
 }
 
 // ---------- Full game analysis ----------
-export async function analyzeGame(game, { engine, depth = 12, useCloud = true, onProgress, token }) {
+// Endgames reach high depth fast and need precision, so they get a deeper search with a per-move time limit.
+export async function analyzeGame(game, { engine, depth = 12, endgameDepth = 0, endgameMs = 6000, useCloud = true, onProgress, token }) {
   await loadBook();
   const P = parseGame(game.pgn);
   const N = P.fens.length;
@@ -113,11 +114,12 @@ export async function analyzeGame(game, { engine, depth = 12, useCloud = true, o
       let r = null;
       if (cloudOk && i < 30) { r = await cloudEval(fen); if (!r) cloudOk = false; }
       if (!r) {
-        const res = await engine.analyze(fen, { depth, multipv: 2 });
+        const deep = endgameDepth > depth && phaseOf(fen, i) === 'endgame';
+        const res = await engine.analyze(fen, deep ? { depth: endgameDepth, movetime: endgameMs, multipv: 2 } : { depth, multipv: 2 });
         const [l0, l1] = res.lines;
         r = l0
           ? { eval: l0.score, best: l0.pv[0], pv: l0.pv.slice(0, 10), second: l1 ? { eval: l1.score, move: l1.pv[0] } : null }
-          : { eval: { cp: 0 }, best: res.bestmove, pv: [res.bestmove] };
+          : { eval: { cp: 0 }, best: res.bestmove || null, pv: res.bestmove ? [res.bestmove] : [] };
       }
       pos[i] = r;
     }

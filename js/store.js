@@ -32,7 +32,7 @@ async function idbSet(key, val) {
 }
 
 export const DEFAULT_SETTINGS = {
-  chesscomUser: '', lichessUser: '', depth: 14, depthChosen: false, useCloud: true, autoSync: true,
+  chesscomUser: '', lichessUser: '', depth: 14, depthChosen: false, endgameDepth: 30, useCloud: true, autoSync: true,
   puzzleDifficulty: 'normal', boardTheme: 'blue', boardChosen: false, lastSync: {},
 };
 

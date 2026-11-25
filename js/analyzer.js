@@ -35,7 +35,7 @@ export const analyzer = {
       if (!g) continue;
       try {
         g.analysis = await analyzeGame(g, {
-          engine: getEngine('bulk'), depth: state.settings.depth, useCloud: state.settings.useCloud, token: this.token,
+          engine: getEngine('bulk'), depth: state.settings.depth, endgameDepth: state.settings.endgameDepth, useCloud: state.settings.useCloud, token: this.token,
           onProgress: p => { this.progress = p; this.emit(); },
         });
         g.analyzedAt = Date.now();

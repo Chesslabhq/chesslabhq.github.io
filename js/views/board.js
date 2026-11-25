@@ -3,6 +3,9 @@ import { Board } from '../board.js';
 import { LiveAnalyzer } from '../engine.js';
 import { whiteWin, fmtEval, pvToSan, START_FEN } from '../analysis.js';
 import { $, esc, toast } from '../ui.js';
+import { phaseOf } from '../tactics.js';
+
+const DEPTHS = [['auto', 'Auto (30 in endgames)'], ['18', 'Depth 18'], ['22', 'Depth 22'], ['26', 'Depth 26'], ['30', 'Depth 30'], ['99', 'Unlimited']];
 
 let cleanup = [];
 export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
@@ -16,6 +19,10 @@ export function render(root, params) {
   let lines = [];
   const live = new LiveAnalyzer('live');
   cleanup.push(() => live.stop());
+  let depthPick = 'auto';
+  try { depthPick = localStorage.getItem('cl-ab-depth') || 'auto'; } catch { /* ignore */ }
+  // Auto: depth 30 in endgames (fast there, and where precision matters most), 22 otherwise
+  const target = () => depthPick === 'auto' ? (phaseOf(fen()) === 'endgame' ? 30 : 22) : +depthPick;
 
   root.innerHTML = `
   <div class="page-head"><div><h1>Analysis board</h1><p>Play any moves, load a FEN or PGN, and let Stockfish show you the top lines.</p></div></div>
@@ -32,7 +39,9 @@ export function render(root, params) {
       </div>
     </div>
     <div class="side-panel">
-      <div class="sec"><div class="spread"><h3 style="margin:0">Stockfish</h3><label class="check"><input type="checkbox" id="ab-eng" checked> On</label></div>
+      <div class="sec"><div class="spread"><h3 style="margin:0">Stockfish</h3><div class="row">
+        <select id="ab-depth" title="How deep Stockfish searches">${DEPTHS.map(([v, l]) => `<option value="${v}" ${v === depthPick ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <label class="check"><input type="checkbox" id="ab-eng" checked> On</label></div></div>
         <div class="lines" id="ab-lines" style="margin-top:8px"></div></div>
       <div class="sec movelist" id="ab-moves" style="min-height:80px"></div>
       <div class="sec stack">
@@ -82,7 +91,7 @@ export function render(root, params) {
     el.innerHTML = lines.length ? lines.map(l => {
       const neg = l.score.mate != null ? l.score.mate < 0 : l.score.cp < 0;
       return `<div class="ln"><span class="ev ${neg ? 'neg' : ''}">${fmtEval(l.score)}</span><span class="pv">${esc(pvToSan(fen(), l.pv, 10))}</span></div>`;
-    }).join('') + `<p class="muted small" style="margin:6px 0 0">Depth ${lines[0].depth}</p>` : '<p class="muted small">Thinking…</p>';
+    }).join('') + `<p class="muted small" style="margin:6px 0 0">Depth ${lines[0].depth}${target() < 99 ? ` / ${target()}` : ''}${depthPick === 'auto' && phaseOf(fen()) === 'endgame' ? ' · endgame: searching deeper' : ''}</p>` : '<p class="muted small">Thinking…</p>';
   }
 
   function drawMoves() {
@@ -107,7 +116,7 @@ export function render(root, params) {
     let t = 0;
     const thisFen = fen();
     live.start(thisFen, {
-      multipv: 3, maxDepth: 22, onInfo: ls => {
+      multipv: 3, maxDepth: target(), onInfo: ls => {
         if (thisFen !== fen()) return;
         lines = ls;
         const now = Date.now();
@@ -136,6 +145,11 @@ export function render(root, params) {
   window.addEventListener('keydown', onKey);
   cleanup.push(() => window.removeEventListener('keydown', onKey));
 
+  $('#ab-depth', root).onchange = e => {
+    depthPick = e.target.value;
+    try { localStorage.setItem('cl-ab-depth', depthPick); } catch { /* ignore */ }
+    update();
+  };
   $('#ab-eng', root).onchange = e => { engineOn = e.target.checked; if (!engineOn) { live.stop(); board.set({ arrows: [] }); } update(); };
   const reset = f => { startFen = f; fens = [f]; sans = []; lasts = [null]; idx = 0; update(); };
   $('#ab-reset', root).onclick = () => reset(START_FEN);
