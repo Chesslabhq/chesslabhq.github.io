@@ -81,6 +81,26 @@ export const CATALOG = [
     ideas: ['Fianchetto with g3 + Bg2 to control the long diagonal.', 'Fight for d5.'],
     lines: [{ name: 'vs ...e5', moves: 'c4 e5 Nc3 Nf6 g3 d5 cxd5 Nxd5 Bg2 Nb6 Nf3 Nc6 O-O' }],
   },
+  {
+    id: 'kia', name: 'King\'s Indian Attack', side: 'w', first: 'Nf3', style: 'aggressive', theory: 1, pop: 14,
+    desc: 'The King\'s Indian Defense with the white pieces: one set-up against almost anything, then push e5 and go after the king. Very little theory.',
+    ideas: [
+      'Same set-up every game: Nf3, g3, Bg2, O-O, d3, Nbd2, then e4.',
+      'Start with 1.Nf3 to play it against anything. After 1.e4 it works against the French and Sicilian, but not 1...e5.',
+      'Once Black has ...e6 and ...d5, push e5: you gain space and kick the f6 knight away from Black\'s king.',
+      'Then attack: Re1 holds e5, the d2 knight goes Nf1–h2–g4 (or Nf1–e3), and h4, Bf4 and Qd2 join in.',
+      'Black\'s counterplay is ...b5–b4 and ...a5–a4 on the queenside. It\'s a race, so attack fast.',
+      'Bishop on f5? Hunt it with Nh4 and take the bishop pair.',
+      'Pawn-storm version: Nc3 instead of Nbd2, then e4. If Black pushes ...d4, drop the knight to e2. Then Ne1 (or Nh4) and f4: the King\'s Indian Defense attack with an extra move.',
+    ],
+    lines: [
+      { name: 'Main set-up', moves: 'Nf3 d5 g3 c5 Bg2 Nf6 O-O e6 d3 Nc6 Nbd2 Be7 e4 O-O Re1' },
+      { name: 'vs ...Bf5: hunt the bishop', moves: 'Nf3 Nf6 g3 d5 Bg2 c6 O-O Bf5 d3 e6 Nh4 Bg4 h3 Bh5 g4 Bg6 Nxg6 hxg6' },
+      { name: 'vs the French: the e5 attack', moves: 'e4 e6 d3 d5 Nd2 Nf6 Ngf3 c5 g3 Nc6 Bg2 Be7 O-O O-O Re1 b5 e5 Nd7 Nf1 a5 h4' },
+      { name: 'vs ...g6 set-ups', moves: 'Nf3 Nf6 g3 g6 Bg2 Bg7 O-O O-O d3 d5 Nbd2 c5 e4 Nc6 Re1' },
+      { name: 'Nc3 and the f4 pawn storm', moves: 'Nf3 d5 g3 c5 Bg2 Nc6 O-O e6 d3 Nf6 Nc3 Be7 e4 d4 Ne2 e5 Ne1 O-O f4' },
+    ],
+  },
 
   // ---------------------------------------------------------------- Black vs 1.e4
   {

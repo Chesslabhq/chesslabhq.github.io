@@ -185,9 +185,24 @@ export const VIDEOS = {
   "id": "M-yzWh0C8z0",
   "title": "How to Counter Aggressive Chess Openings - Fried Liver Attack",
   "channel": "thechesswebsite"
+ },
+ "3orflWmplxE": {
+  "id": "3orflWmplxE",
+  "title": "Learn King's Indian Attack in 10 minutes | Easy Chess",
+  "channel": "Arturs Neiksans"
+ },
+ "QhdoA4EvMzI": {
+  "id": "QhdoA4EvMzI",
+  "title": "Chess Openings: Learn to Play the King's Indian Attack | King's Indian Attack Theory!",
+  "channel": "The Chess Giant"
+ },
+ "RVGaiv3mnGo": {
+  "id": "RVGaiv3mnGo",
+  "title": "King's Indian Attack | Beginner Kids' Class - GM Dariusz Swiercz",
+  "channel": "Saint Louis Chess Club"
  }
 };
-export const LEARN = {"london":["ECMMct_jnEM","Ltu29IsoyTQ"],"vienna":["ohIxCz2yJDg","TyhvWYSNDWo","ClxyPSPnXvQ"],"italian":["MhNs8GLo894","0g0mrGTGe-E","6ACqk117Q7U"],"e5":["0g0mrGTGe-E","MhNs8GLo894"],"friedliver":["VVI1nHnP5Zg"],"ruy":["xD0iTgHMQVQ","tN5QElOOjfw","IQrtrPvU3bQ"],"qg":["NTOPdpKMuUI","a5V3-IjAEcs","pXMG4KCXo94"],"qgd":["pXMG4KCXo94"],"carokann":["7bes-qFTBt8"],"najdorf":["qM4e7g2RukI","qzydxPgPKzs"],"french":["lQ6ZvyuNCJk","NPe5wmxfGUA","HEvlWRVr1wM"],"scandi":["sKoBj-kL0hg","OGehkS76Q24"],"stafford":["XkB4IVNaZWw","eIecRRl1cfc","16Q6Po-s6Gs"],"kid":["gLxAlO-4wHg","eDSpqAABgME","u2vc9OQy6FQ"]};
+export const LEARN = {"london":["ECMMct_jnEM","Ltu29IsoyTQ"],"vienna":["ohIxCz2yJDg","TyhvWYSNDWo","ClxyPSPnXvQ"],"italian":["MhNs8GLo894","0g0mrGTGe-E","6ACqk117Q7U"],"e5":["0g0mrGTGe-E","MhNs8GLo894"],"friedliver":["VVI1nHnP5Zg"],"ruy":["xD0iTgHMQVQ","tN5QElOOjfw","IQrtrPvU3bQ"],"qg":["NTOPdpKMuUI","a5V3-IjAEcs","pXMG4KCXo94"],"qgd":["pXMG4KCXo94"],"carokann":["7bes-qFTBt8"],"najdorf":["qM4e7g2RukI","qzydxPgPKzs"],"french":["lQ6ZvyuNCJk","NPe5wmxfGUA","HEvlWRVr1wM"],"scandi":["sKoBj-kL0hg","OGehkS76Q24"],"stafford":["XkB4IVNaZWw","eIecRRl1cfc","16Q6Po-s6Gs"],"kid":["gLxAlO-4wHg","eDSpqAABgME","u2vc9OQy6FQ"],"kia":["3orflWmplxE","QhdoA4EvMzI","RVGaiv3mnGo"]};
 export const BEAT = {"sicilian":["VxV8l3x7hOg","qM4e7g2RukI"],"carokann":["qfsIddAKYBs","H5HdAUQZJ1E"],"scandi":["-kC7psyKG0s","OGehkS76Q24"],"london":["Nc8rzTIfFCw"],"vienna":["S7WeOmsYuUI"],"italian":["M-yzWh0C8z0","0g0mrGTGe-E"],"ruy":["tN5QElOOjfw","IQrtrPvU3bQ"],"qg":["pXMG4KCXo94"],"stafford":["eIecRRl1cfc"],"french":["lQ6ZvyuNCJk","NPe5wmxfGUA"],"kidw":["gLxAlO-4wHg"]};
 export const learnVideos = id => (LEARN[id] || []).map(v => VIDEOS[v]);
 export const beatVideos = id => (BEAT[id] || []).map(v => VIDEOS[v]);
