@@ -2,7 +2,7 @@ import { state, openingName } from '../store.js';
 import { Chess } from '../lib.js';
 import { Board } from '../board.js';
 import { analyzer } from '../analyzer.js';
-import { playedRating, verdict } from '../perf.js';
+import { playedRating, playedRatingFor, verdict } from '../perf.js';
 import { LiveAnalyzer } from '../engine.js';
 import { phaseOf } from '../tactics.js';
 import { parseGame, whiteWin, fmtEval, moveComment, coachExplain, pvToSan, uciToSan, moverWin } from '../analysis.js';
@@ -181,7 +181,13 @@ export function render(root, params) {
       return;
     }
     const nPuz = Object.values(state.puzzles).filter(p => p.gameId === g.id).length;
-    const box = c => `<div class="acc-box ${c}"><div class="who">${esc(c === 'w' ? g.white : g.black)}${g.userColor === c ? ' (you)' : ''}</div><div class="n">${a.accuracy[c] ?? '—'}</div><div class="muted small">accuracy</div></div>`;
+    const box = c => {
+      const pr = playedRatingFor(g, c);
+      const real = c === 'w' ? g.whiteElo : g.blackElo;
+      const d = pr && real ? pr.rating - real : null;
+      return `<div class="acc-box ${c}"><div class="who">${esc(c === 'w' ? g.white : g.black)}${g.userColor === c ? ' (you)' : ''}</div><div class="n">${a.accuracy[c] ?? '—'}</div><div class="muted small">accuracy</div>
+        ${pr ? `<div class="acc-played">played like <b>${pr.rating}</b>${d != null ? ` <span style="color:${d >= 100 ? '#a7dc75' : d > -100 ? 'var(--muted)' : d > -300 ? 'var(--orange)' : 'var(--red)'}">(${d > 0 ? '+' : ''}${d})</span>` : ''}</div>` : ''}</div>`;
+    };
     const pa = g.platformAccuracy;
     const pr = playedRating(g);
     head.innerHTML = `<div class="acc-row">${box('w')}<div class="muted">vs</div>${box('b')}</div>

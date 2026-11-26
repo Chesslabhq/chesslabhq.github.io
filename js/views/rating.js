@@ -1,6 +1,6 @@
 // Rating Check: the rating you actually played at in each game vs your real rating — no sugar-coating.
 import { myGames } from '../store.js';
-import { playedRating, verdict, overallVerdict } from '../perf.js';
+import { playedRating, opponentPlayedRating, verdict, overallVerdict } from '../perf.js';
 import { analyzer } from '../analyzer.js';
 import { $, esc, fmtDate, cap, toast } from '../ui.js';
 
@@ -62,15 +62,21 @@ export function render(root, params) {
   </div>
 
   <div class="card" style="margin-top:16px;padding:0"><div class="table-wrap"><table class="tbl">
-    <thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Your rating</th><th>Played like</th><th>Diff</th><th>Verdict</th></tr></thead>
-    <tbody>${list.map(({ g, p }, i) => `<tr class="click" onclick="location.hash='#/review/${encodeURIComponent(g.id)}'">
+    <thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Your rating</th><th>You played like</th><th>Diff</th><th>Accuracy<br><span style="font-weight:400">you · them</span></th><th>They played like</th><th>Verdict</th></tr></thead>
+    <tbody>${list.map(({ g, p }, i) => {
+      const o = opponentPlayedRating(g);
+      const od = o && p.opp ? o.rating - p.opp : null;
+      return `<tr class="click" onclick="location.hash='#/review/${encodeURIComponent(g.id)}'">
       <td class="muted">${fmtDate(g.date)}</td>
       <td>${esc(g.userColor === 'w' ? g.black : g.white)} <span class="muted">(${p.opp ?? '?'})</span></td>
       <td>${p.res ? `<span class="pill ${p.res}">${cap(p.res)}</span>` : ''}</td>
       <td>${p.actual ?? '—'}</td>
       <td><b style="font-size:16px">${p.rating}</b>${p.lowConfidence ? ' <span class="muted small" title="Short game">*</span>' : ''}</td>
       <td style="font-weight:700;color:${deltaColor(p.delta)}">${sign(p.delta)}</td>
-      <td class="small" style="max-width:420px;line-height:1.45">${esc(verdict(p, i))}</td></tr>`).join('')}</tbody></table></div></div>
+      <td style="white-space:nowrap"><b>${g.analysis.accuracy[g.userColor] ?? '—'}</b> <span class="muted">· ${g.analysis.accuracy[g.userColor === 'w' ? 'b' : 'w'] ?? '—'}</span></td>
+      <td style="white-space:nowrap">${o ? `<b>${o.rating}</b> <span class="small" style="color:${deltaColor(od)}">${od != null ? `(${sign(od)})` : ''}</span>` : '—'}</td>
+      <td class="small" style="max-width:420px;line-height:1.45">${esc(verdict(p, i))}</td></tr>`;
+    }).join('')}</tbody></table></div></div>
   <p class="muted small" style="margin-top:10px">How it's estimated: we start from your opponent's rating, then adjust by how much more or less accurately you played than they did (engine accuracy on non-book moves), plus a little for the result and any thrown wins. * = short game, not counted in the averages. It's a rough guide, not an official rating.</p>`;
 
   wire();

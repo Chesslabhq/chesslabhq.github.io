@@ -53,7 +53,10 @@ export function render(root) {
       const acc = userAcc(g);
       const running = analyzer.running === g.id;
       const queued = analyzer.queue.includes(g.id);
-      const status = g.analysis ? `<b>${acc != null ? acc.toFixed(1) + '%' : `${g.analysis.accuracy.w}/${g.analysis.accuracy.b}`}</b>`
+      const oppAcc = g.analysis && g.userColor ? g.analysis.accuracy[g.userColor === 'w' ? 'b' : 'w'] : null;
+      const status = g.analysis ? (acc != null
+        ? `<b>${acc.toFixed(1)}%</b> <span class="muted small" title="Opponent's accuracy">· ${oppAcc != null ? oppAcc.toFixed(1) + '%' : '—'}</span>`
+        : `<b>${g.analysis.accuracy.w}/${g.analysis.accuracy.b}</b>`)
         : running ? `<span class="muted">${Math.round(analyzer.progress * 100)}%</span>`
           : queued ? '<span class="muted">Queued</span>' : `<button class="btn sm" data-an="${g.id}">Analyse</button>`;
       return `<tr class="click" data-id="${g.id}">
@@ -67,7 +70,7 @@ export function render(root) {
         <td><button class="btn sm ghost" data-del="${g.id}" title="Remove">✕</button></td>
       </tr>`;
     }).join('');
-    $('#g-table', root).innerHTML = `<table class="tbl"><thead><tr><th>Site</th><th>Date</th><th>Opponent</th><th>Result</th><th>Type</th><th>Opening</th><th>Accuracy</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    $('#g-table', root).innerHTML = `<table class="tbl"><thead><tr><th>Site</th><th>Date</th><th>Opponent</th><th>Result</th><th>Type</th><th>Opening</th><th>Accuracy <span style="font-weight:400">you · them</span></th><th></th></tr></thead><tbody>${rows}</tbody></table>
       ${list.length > limit ? `<div style="padding:14px;text-align:center"><button class="btn" id="g-more">Show more (${list.length - limit} left)</button></div>` : ''}`;
     const more = $('#g-more', root);
     if (more) more.onclick = () => { limit += 100; draw(); };

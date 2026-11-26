@@ -1,6 +1,5 @@
 // "What rating did I actually play at?" — estimated from engine accuracy, plus brutally honest verdicts.
 import { parseGame, moverWin } from './analysis.js';
-import { userResult } from './store.js';
 
 // How it works: accuracy alone can't tell players apart — measured on real games, a 1250 blitz game scored 82.6%
 // while a Magnus Carlsen blitz game scored 78%, because strong opponents create harder positions. So the estimate
@@ -25,9 +24,24 @@ const round25 = x => Math.round(x / 25) * 25;
 
 /** Estimated rating you played at in one analysed game, with the facts behind it. */
 export function playedRating(g) {
+  return g.userColor ? playedRatingFor(g, g.userColor) : null;
+}
+
+/** The same estimate for your opponent. */
+export function opponentPlayedRating(g) {
+  return g.userColor ? playedRatingFor(g, g.userColor === 'w' ? 'b' : 'w') : null;
+}
+
+const resultFor = (g, color) => g.result === '1/2-1/2' ? 'draw'
+  : g.result === '1-0' ? (color === 'w' ? 'win' : 'loss')
+  : g.result === '0-1' ? (color === 'b' ? 'win' : 'loss') : null;
+
+/** Estimated rating one side (color 'w' or 'b') played at. */
+export function playedRatingFor(g, color) {
   const A = g.analysis;
-  if (!A || !g.userColor) return null;
-  const oppColor = g.userColor === 'w' ? 'b' : 'w';
+  if (!A || !color) return null;
+  const me = color;
+  const oppColor = me === 'w' ? 'b' : 'w';
   const realMoves = color => A.moves.filter(m => m.color === color && m.cls !== 'book' && m.cls !== 'forced');
   const accOf = list => {
     if (!list.length) return null;
@@ -35,16 +49,16 @@ export function playedRating(g) {
     const harm = list.length / list.reduce((s, m) => s + 1 / Math.max(m.acc, 5), 0);
     return +((mean + harm) / 2).toFixed(1);
   };
-  const nonBook = realMoves(g.userColor);
+  const nonBook = realMoves(me);
   if (nonBook.length < 5) return null;
   const acc = accOf(nonBook);
   const oppAcc = accOf(realMoves(oppColor));
-  const c = A.counts[g.userColor] || {};
+  const c = A.counts[me] || {};
   const blunders = c.blunder || 0, mistakes = (c.mistake || 0) + (c.miss || 0);
-  const wasWinning = A.positions.some(p => moverWin(p.eval, g.userColor) >= 85);
-  const res = userResult(g);
+  const wasWinning = A.positions.some(p => moverWin(p.eval, me) >= 85);
+  const res = resultFor(g, me);
   const threw = wasWinning && res !== 'win';
-  const oppRating = g.userColor === 'w' ? g.blackElo : g.whiteElo;
+  const oppRating = me === 'w' ? g.blackElo : g.whiteElo;
   let est;
   if (oppRating && oppAcc != null) {
     const swing = Math.max(-MAX_SWING, Math.min(MAX_SWING, POINTS_PER_ACC * (acc - oppAcc)));
@@ -57,9 +71,9 @@ export function playedRating(g) {
     if (threw) est -= 100;
   }
   let spent = [];
-  try { const P = parseGame(g.pgn); spent = P.moves.map((m, i) => m.color === g.userColor ? P.spent[i] : null); } catch { /* ignore */ }
-  const rushedBlunders = A.moves.filter((m, i) => m.color === g.userColor && m.cls === 'blunder' && spent[i] != null && spent[i] < 4).length;
-  const actual = g.userColor === 'w' ? g.whiteElo : g.blackElo;
+  try { const P = parseGame(g.pgn); spent = P.moves.map((m, i) => m.color === me ? P.spent[i] : null); } catch { /* ignore */ }
+  const rushedBlunders = A.moves.filter((m, i) => m.color === me && m.cls === 'blunder' && spent[i] != null && spent[i] < 4).length;
+  const actual = me === 'w' ? g.whiteElo : g.blackElo;
   const opp = oppRating;
   const rating = Math.max(100, Math.min(3500, round25(est)));
   return {
