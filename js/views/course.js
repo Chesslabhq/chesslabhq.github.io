@@ -3,7 +3,10 @@
 import { state, myGames } from '../store.js';
 import { Chess } from '../lib.js';
 import { Board } from '../board.js';
-import { $, esc, pct } from '../ui.js';
+import { $, esc, pct, CLS, clsIcon } from '../ui.js';
+import { getEngine } from '../engine.js';
+import { loadBook, inBook, openingOf } from '../openings.js';
+import { moverWin, fmtEval } from '../analysis.js';
 import { openingProfile } from '../recommend.js';
 import { videosCard } from '../videos.js';
 import { learnVideos } from '../data/videos.js';
@@ -22,6 +25,61 @@ const fmtMoves = moves => moves.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : 
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const PRACTICE_ROUNDS = 5;
+
+// ---------------------------------------------------------------- Grading moves that aren't the course move
+const GOOD = ['best', 'excellent', 'good', 'book'];
+const VERDICT = {
+  best: 'The engine\'s top choice here.',
+  excellent: 'The engine rates it about as highly as its top choice.',
+  good: 'Only a little weaker than the engine\'s top choice.',
+  book: 'A well-known opening move.',
+  inaccuracy: 'Playable, but it gives away part of your position.',
+  mistake: 'This loses ground. Compare it with the course move below.',
+  blunder: 'This loses material or the position. Look at the course move below.',
+};
+/** An engine line as numbered moves, e.g. "3...e6 4.Nf3 c5". */
+function pvText(fen, pv, ply, n = 6) {
+  const c = new Chess(fen), out = [];
+  for (const u of (pv || []).slice(0, n)) {
+    let m;
+    try { m = c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] }); } catch { break; }
+    const p = ply + out.length;
+    out.push((p % 2 === 0 ? `${p / 2 + 1}.` : out.length === 0 ? `${Math.floor(p / 2) + 1}...` : '') + m.san);
+  }
+  return out.join(' ');
+}
+/**
+ * How good is a move that isn't the course move? Same scale as game reviews (win-chance lost vs the engine's best),
+ * plus how the game would go on after it.
+ */
+async function gradeMove(fenBefore, san, playedBefore) {
+  await loadBook();
+  const c = new Chess(fenBefore);
+  const mv = c.move(san);
+  const fenAfter = c.fen(), uci = mv.from + mv.to + (mv.promotion || '');
+  const eng = getEngine('coach');
+  const r1 = await eng.analyze(fenBefore, { depth: 13, multipv: 3, movetime: 4000 });
+  if (!r1?.lines?.length) return null;
+  const best = r1.lines[0];
+  const mine = r1.lines.find(l => l.pv[0] === uci);
+  let score = mine?.score, cont = mine ? mine.pv.slice(1) : null;
+  if (!mine) {
+    const r2 = await eng.analyze(fenAfter, { depth: 13, movetime: 4000 });
+    if (!r2?.lines?.length) return null;
+    score = r2.lines[0].score; cont = r2.lines[0].pv;
+  }
+  const loss = Math.max(0, moverWin(best.score, mv.color) - moverWin(score, mv.color));
+  let cls = loss < 1 ? (best.pv[0] === uci ? 'best' : 'excellent') : loss < 2.5 ? 'excellent' : loss < 5 ? 'good' : loss < 10 ? 'inaccuracy' : loss < 20 ? 'mistake' : 'blunder';
+  const book = inBook(fenAfter);
+  if (book && loss < 10) cls = 'book';
+  let opening = null;
+  if (book) {
+    const g = new Chess(), fens = [g.fen()];
+    for (const p of [...playedBefore, mv.san]) { g.move(p); fens.push(g.fen()); }
+    opening = openingOf(fens);
+  }
+  return { cls, score, fenAfter, cont, opening };
+}
 
 // ---------------------------------------------------------------- Course list
 export async function renderCoursesTab(body) {
@@ -201,7 +259,7 @@ export async function renderCourseTrainer(root, params) {
   let wrongHere = false;            // already slipped in this position (it counts once)
   let gen = 0;                      // bumps on every (re)start, so delayed moves from an old line are dropped
   const coach = { mine: null, opp: null };
-  const session = { rounds: 0, total: 0, correct: 0, mistakes: [], lines: new Set() };
+  const session = { rounds: 0, total: 0, correct: 0, mistakes: [], alternatives: [], lines: new Set() };
   const inScope = new Set(scope.map(l => l.index));
   const alive = () => root.isConnected;
 
@@ -298,16 +356,62 @@ export async function renderCourseTrainer(root, params) {
     }
   }
 
-  function slip(playedSan) {
+  function slip(playedSan, cls = null) {
     slips++;
     if (wrongHere) return;
     wrongHere = true;
     if (mode === 'practice') {
       session.total++;
       const exp = expected();
-      session.mistakes.push({ played: playedSan, expected: exp, before: [...played], note: node.kids.get(exp[0])?.note || '' });
+      session.mistakes.push({ played: playedSan, cls, expected: exp, before: [...played], note: node.kids.get(exp[0])?.note || '' });
       $('#tr-sub', root).textContent = sub();
     }
+  }
+
+  // the course's next few moves after `san` (the most-played branch of the course)
+  function courseNext(san, n = 4) {
+    if (mode !== 'practice') return line.moves.slice(played.length + 1, played.length + 1 + n);
+    const out = [];
+    let k = node.kids.get(san);
+    while (k && k.kids.size && out.length < n) { k = [...k.kids.values()].sort((a, b) => b.lines.length - a.lines.length)[0]; out.push(k.san); }
+    return out;
+  }
+  const numbered = (moves, ply) => moves.map((m, i) => { const p = ply + i; return (p % 2 === 0 ? `${p / 2 + 1}.` : i === 0 ? `${Math.floor(p / 2) + 1}...` : '') + m; }).join(' ');
+
+  // You played something other than the course move: say how good it is, how the game goes on, and what the course plays.
+  async function showAlternative(m, before, exp) {
+    busy = true;
+    const g = gen, ply = played.length;
+    const shown = new Chess(before);
+    shown.move(m.san);
+    board.set({ fen: shown.fen(), lastMove: [m.from, m.to], arrows: [], marks: {} });
+    status('turn', `Checking ${esc(moveLabel(ply, m.san))}…`);
+    let r = null;
+    try { r = await gradeMove(before, m.san, played); } catch (e) { console.warn('grading failed', e); }
+    if (!alive() || g !== gen) return;
+    const good = !!r && GOOD.includes(r.cls);
+    if (mode !== 'learn') { if (good) { if (mode === 'practice') session.alternatives.push({ played: m.san, cls: r.cls, expected: exp, before: [...played] }); } else slip(m.san, r?.cls); }
+    const label = moveLabel(ply, m.san);
+    const name = r ? (r.cls === 'book' ? 'Book move' : CLS[r.cls].label + (GOOD.includes(r.cls) ? ' move' : '')) : 'Not the course move';
+    status(good ? 'ok' : r ? 'bad' : 'done', `${r ? clsIcon(r.cls) : ''}<span><b>${esc(name)}</b>: ${esc(label)}</span>`);
+    const next = courseNext(exp[0]);
+    const items = [
+      { title: `${name}: ${label}`, text: r ? `${VERDICT[r.cls]}${r.cls === 'book' && r.opening ? ` (${r.opening.name})` : ''} Engine after your move: ${fmtEval(r.score)}.` : 'The engine couldn\'t check this move right now.', cls: good ? 'ok' : 'bad' },
+      r?.cont?.length ? { title: `How to continue after ${m.san}`, text: `Stockfish suggests: ${pvText(r.fenAfter, r.cont, ply + 1)}`, cls: 'intro' } : null,
+      { title: `The course plays ${moveLabel(ply, exp[0])}${exp.length > 1 ? ` (or ${exp.slice(1).join(', ')})` : ''}`, text: `${node.kids.get(exp[0])?.note || ''}${next.length ? ` The course continues: ${numbered(next, ply + 1)}.` : ''}`, cls: 'you' },
+    ].filter(Boolean);
+    $('#tr-note', root).innerHTML = items.map(i => `<div class="cn ${i.cls}"><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div>`).join('');
+    const after = $('#tr-after', root);
+    after.style.display = '';
+    after.innerHTML = `<div class="row"><button class="btn primary" id="tr-back">↩ Play the course move</button>
+      <a class="btn" href="#/bots?color=${color}&moves=${encodeURIComponent([...played, m.san].join(' '))}">▶ Keep ${esc(m.san)} and play on vs bot</a></div>`;
+    $('#tr-back', root).onclick = () => {
+      if (g !== gen) return;
+      after.style.display = 'none';
+      busy = false;
+      board.set({ fen: chess.fen(), lastMove: null, arrows: arrowFor(exp[0]), marks: {} });
+      status('turn', `${turnDot} Play the course move <b>${esc(exp[0])}</b> to carry on with the course.`);
+    };
   }
 
   function onMove(from, to, promo) {
@@ -320,39 +424,39 @@ export async function renderCourseTrainer(root, params) {
       if (mode === 'practice' && !wrongHere) { session.total++; session.correct++; }
       const { m: mv, k } = playMove(m.san);
       board.set({ fen: chess.fen(), lastMove: [mv.from, mv.to], marks: { [mv.to]: 'right' }, arrows: [] });
-      coach.mine = { title: `✓ ${moveLabel(played.length - 1, mv.san)}`, text: k?.note || '', cls: 'ok' };
+      coach.mine = { title: `✓ Course move: ${moveLabel(played.length - 1, mv.san)}`, text: k?.note || '', cls: 'ok' };
       coach.opp = null;
+      $('#tr-after', root).style.display = 'none';
       advance();
       return;
     }
     if (mode === 'drill' && node.kids.has(m.san)) { // a move from a different line of this course
       busy = true;
-      board.set({ marks: { [to]: 'wrong' }, arrows: [] });
-      status('done', `${esc(m.san)} belongs to another line of this course. In <b>${esc(line.name)}</b> the move is different. Try again.`);
+      board.set({ marks: { [to]: 'right' }, arrows: [] });
+      status('ok', `✓ ${esc(m.san)} is a course move too, from another line. In <b>${esc(line.name)}</b> the course plays something else here: try again.`);
       const g0 = gen;
-      setTimeout(() => { if (alive() && g0 === gen) { busy = false; board.set({ fen: chess.fen(), marks: {} }); } }, 1100);
+      setTimeout(() => { if (alive() && g0 === gen) { busy = false; board.set({ fen: chess.fen(), marks: {} }); } }, 1400);
       return;
     }
-    if (mode !== 'learn') slip(m.san);
-    busy = true;
-    board.set({ fen: chess.fen(), lastMove: null, marks: { [to]: 'wrong' }, arrows: mode === 'learn' ? arrowFor(exp[0]) : [] });
-    status('bad', `✗ ${esc(m.san)} isn't the course move.${mode === 'learn' ? ` Play <b>${esc(exp[0])}</b>.` : ' Look again, or take a hint.'}`);
-    const g1 = gen;
-    setTimeout(() => {
-      if (!alive() || g1 !== gen) return;
-      busy = false;
-      board.set({ marks: {} });
-      if (mode !== 'learn' && slips >= 2) { // second miss: show the answer and why
-        board.set({ arrows: arrowFor(exp[0]) });
-        status('bad', `The course plays <b>${esc(exp.join(' or '))}</b> here. Play it to continue.`);
-        showNotes({ title: moveLabel(played.length, exp[0]), text: node.kids.get(exp[0])?.note || '', cls: 'you' });
-      }
-    }, 850);
+    showAlternative(m, before, exp);
+  }
+
+  // At the end of a line: how the game goes on from here.
+  async function continuationHint() {
+    const g = gen, fen = chess.fen(), ply = played.length;
+    let r = null;
+    try { r = await getEngine('coach').analyze(fen, { depth: 13, movetime: 3000 }); } catch { /* engine unavailable */ }
+    if (!alive() || g !== gen || !r?.lines?.length) return;
+    const text = pvText(fen, r.lines[0].pv, ply);
+    if (!text) return;
+    $('#tr-note', root).insertAdjacentHTML('beforeend', `<div class="cn intro"><b>How to continue the opening</b><span>Stockfish suggests: ${esc(text)} (engine ${esc(fmtEval(r.lines[0].score))}).</span></div>`);
   }
 
   function finishLine() {
     done = true;
     drawMoves();
+    showNotes();
+    continuationHint();
     const after = $('#tr-after', root);
     after.style.display = '';
     const botLink = `<a class="btn" href="#/bots?color=${color}&moves=${encodeURIComponent(played.join(' '))}">🤖 Play on vs engine bot</a>`;
@@ -394,12 +498,14 @@ export async function renderCourseTrainer(root, params) {
     const after = $('#tr-after', root);
     after.style.display = '';
     after.innerHTML = `
-      <p style="margin:0 0 8px"><b>${verdict}</b>${session.mistakes.length ? ` ${plural(session.mistakes.length, 'mistake')} to fix:` : ''}</p>
-      ${session.mistakes.map(x => `<div class="insight"><span class="ic">✗</span><span>${x.before.length ? `After <span class="muted">${esc(fmtMoves(x.before).split(' ').slice(-3).join(' '))}</span>` : 'On move 1'} you played <b>${esc(x.played)}</b>; the course plays <b>${esc(x.expected.join(' or '))}</b>.${x.note ? ` <span class="muted">${esc(x.note)}</span>` : ''}</span></div>`).join('')}
+      <p style="margin:0 0 8px"><b>${verdict}</b>${session.mistakes.length ? ` ${plural(session.mistakes.length, 'move')} to fix:` : ''}</p>
+      ${session.mistakes.map(x => `<div class="insight"><span class="ic">${x.cls ? clsIcon(x.cls) : '💡'}</span><span>${x.before.length ? `After <span class="muted">${esc(fmtMoves(x.before).split(' ').slice(-3).join(' '))}</span>` : 'On move 1'} you played <b>${esc(x.played)}</b>${x.cls ? ` (${esc(CLS[x.cls].label.toLowerCase())})` : ''}; the course plays <b>${esc(x.expected.join(' or '))}</b>.${x.note ? ` <span class="muted">${esc(x.note)}</span>` : ''}</span></div>`).join('')}
+      ${session.alternatives.length ? `<p style="margin:12px 0 4px"><b>Good alternatives you found</b> <span class="muted">(no penalty)</span></p>
+      ${session.alternatives.map(x => `<div class="insight"><span class="ic">${clsIcon(x.cls)}</span><span>${x.before.length ? `After <span class="muted">${esc(fmtMoves(x.before).split(' ').slice(-3).join(' '))}</span>` : 'On move 1'}, <b>${esc(x.played)}</b> is ${x.cls === 'book' ? 'a book move' : `${CLS[x.cls].label === 'Best' ? 'the best move' : `a${x.cls === 'excellent' ? 'n' : ''} ${CLS[x.cls].label.toLowerCase()} move`}`}; the course plays <b>${esc(x.expected.join(' or '))}</b>.</span></div>`).join('')}` : ''}
       <div class="row" style="margin-top:10px"><button class="btn primary" id="tr-again2">↺ Practice again</button>
         ${session.mistakes.length ? `<a class="btn" href="${courseUrl(id, 'drill', ch ? { ch: ch.index } : {})}">🧠 Drill the lines you missed</a>` : ''}
         <a class="btn" href="#/openings?op=${id}">Back to the course</a></div>`;
-    $('#tr-again2', root).onclick = () => { Object.assign(session, { rounds: 0, total: 0, correct: 0, mistakes: [], lines: new Set() }); startLine(); };
+    $('#tr-again2', root).onclick = () => { Object.assign(session, { rounds: 0, total: 0, correct: 0, mistakes: [], alternatives: [], lines: new Set() }); startLine(); };
   }
 
   $('#tr-hint', root).onclick = () => {

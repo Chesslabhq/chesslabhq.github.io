@@ -483,6 +483,8 @@ input[type="range"] { accent-color: var(--accent); }
 .coach .cn.ok { border-left-color: #6fbf4a; }
 .coach .cn.opp { border-left-color: #8a6fd0; }
 .coach .cn.intro { border-left-color: var(--orange); }
+.coach .cn.bad { border-left-color: #e6912c; }
+.puz-status .ci { flex-shrink: 0; }
 @media (max-width: 640px) {
   .course-ch .tbl, .course-ch .tbl tbody, .course-ch .tbl tr, .course-ch .tbl td { display: block; width: auto !important; }
   .course-ch .tbl tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
