@@ -44,8 +44,9 @@ export const state = {
   pstats: { rating: 1500, themes: {}, history: [] }, // puzzle stats
   activity: {},     // yyyy-mm-dd -> { puzzles, solved, analyzed }
   repertoire: {},   // id -> opening line you're memorising (spaced repetition)
+  courses: {},      // course id -> { sessions: [practice results] }
 };
-export const KEYS = ['games', 'puzzles', 'settings', 'goals', 'pstats', 'activity', 'repertoire'];
+export const KEYS = ['games', 'puzzles', 'settings', 'goals', 'pstats', 'activity', 'repertoire', 'courses'];
 
 export async function loadAll() {
   try {
@@ -61,7 +62,7 @@ export async function loadAll() {
 /** Wipe everything this browser has stored (games, analysis, puzzles, goals, usernames). */
 export async function resetAll() {
   Object.assign(state, {
-    games: {}, puzzles: {}, goals: [], activity: {}, repertoire: {},
+    games: {}, puzzles: {}, goals: [], activity: {}, repertoire: {}, courses: {},
     pstats: { rating: 1500, themes: {}, history: [] }, settings: { ...DEFAULT_SETTINGS, lastSync: {} },
   });
   for (const k of KEYS) await idbSet(k, state[k]);

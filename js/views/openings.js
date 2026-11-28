@@ -11,6 +11,7 @@ import { recommend, openingProfile } from '../recommend.js';
 import { ANTI, antiById } from '../data/anti.js';
 import { videosCard, videoTiles } from '../videos.js';
 import { learnVideos, beatVideos } from '../data/videos.js';
+import { renderCoursesTab, renderCoursePage, renderCourseTrainer, courseUrl } from './course.js';
 
 let cleanup = [];
 export function destroy() { cleanup.forEach(f => f()); cleanup = []; }
@@ -28,22 +29,24 @@ const lineId = (moves, color) => color + ':' + moves.join(' ');
 const fmtLine = moves => moves.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + m).join(' ');
 
 function tabs(active) {
-  const t = [['foryou', '✨ Suggested for me'], ['anti', '🛡 Beat an opening'], ['videos', '🎬 Videos'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
+  const t = [['courses', '📘 Courses'], ['foryou', '✨ Suggested for me'], ['anti', '🛡 Beat an opening'], ['videos', '🎬 Videos'], ['popular', '🔥 Most popular'], ['gotham', '♟ GothamChess favourites'], ['mine', 'From my games'], ['library', 'Opening library'], ['rep', 'My repertoire']];
   return `<div class="tabs">${t.map(([k, l]) => `<button class="${k === active ? 'active' : ''}" onclick="location.hash='#/openings?tab=${k}'">${l}</button>`).join('')}</div>`;
 }
 
 export async function render(root, params) {
   destroy();
   if (params.train) return renderTrainer(root, params);
-  if (params.op) return renderOpening(root, params.op);
+  if (params.course) return renderCourseTrainer(root, params);
+  if (params.op) { if (await renderCoursePage(root, params.op)) return; return renderOpening(root, params.op); }
   if (params.anti) return renderAntiPage(root, params.anti);
-  const tab = params.tab || 'foryou';
+  const tab = params.tab || 'courses';
   const due = Object.values(state.repertoire).filter(r => r.due <= Date.now()).length;
   root.innerHTML = `
     <div class="page-head"><div><h1>Openings</h1><p>Learn openings, see what you really play, and drill your lines until they're second nature.</p></div>
       <div class="row">${Object.keys(state.repertoire).length ? `<a class="btn primary" href="#/openings?train=due">▶ Drill ${due ? `${due} due line${due > 1 ? 's' : ''}` : 'my repertoire'}</a>` : ''}</div></div>
     ${tabs(tab)}<div id="op-body"><p class="muted">Loading…</p></div>`;
   const body = $('#op-body', root);
+  if (tab === 'courses') return renderCoursesTab(body);
   if (tab === 'library') return renderLibrary(body, params);
   if (tab === 'rep') return renderRep(body);
   if (tab === 'foryou') return renderForYou(body);
@@ -90,7 +93,7 @@ function renderForYou(body) {
           <div class="spread"><b style="font-size:16px">${i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : '🥉 '}${esc(r.o.name)}</b>${r.o.gotham ? '<span class="pill">♟ Gotham</span>' : ''}</div>
           <div class="muted small" style="margin:4px 0 8px">${STYLE[r.o.style]} · ${THEORY[r.o.theory]}</div>
           <ul style="margin:0 0 10px;padding-left:18px;line-height:1.5" class="small">${r.why.slice(0, 4).map(w => `<li>${esc(w)}</li>`).join('')}</ul>
-          <div class="row"><a class="btn sm primary" href="#/openings?op=${r.o.id}">Learn it</a><a class="btn sm" href="${trainUrl(r.o, r.o.lines[0], 'learn')}">▶ First line</a></div>
+          <div class="row"><a class="btn sm primary" href="#/openings?op=${r.o.id}">Open the course</a><a class="btn sm" href="${courseUrl(r.o.id, 'learn')}">▶ Start learning</a></div>
         </div>`).join('')}</div>
     </div>`;
   body.innerHTML = `
